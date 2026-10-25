@@ -22,7 +22,7 @@ Only the owner wallet can change the policy, pause, deposit or withdraw. A chat 
 SmartContracts/  Foundry: GuardedVault, SupraFeedAdapter, mainnet-fork tests, deploy script
 ABI/             Shared config: addresses.json (chain 177) and the generated vault ABI (JSON + typed TS)
 Backend/         Node 24 + viem: market data, strategies, agent loop, HTTP API
-AI/              Claude tool-use chat: get_state, propose_policy, propose_strategy, attempt_trade
+AI/              Claude Sonnet 5.5 tool-use chat via Hopscotch Labs: get_state, propose_policy, propose_strategy, attempt_trade
 Frontend/        Next.js + wagmi: dashboard, trade log, chat, sign-to-apply, guardrail demo
 ```
 
@@ -70,13 +70,31 @@ The script deploys the vault and three feed adapters, allows USDT, WHSK and WETH
 ### Run
 
 ```bash
-cp Backend/.env.example Backend/.env          # set OPERATOR_PRIVATE_KEY and ANTHROPIC_API_KEY
+cp Backend/.env.example Backend/.env          # set OPERATOR_PRIVATE_KEY and HOPSCOTCH_API_KEY
 cp Frontend/.env.example Frontend/.env.local
 pnpm backend                                  # API on :8787 plus the trading loop
 pnpm frontend                                 # dashboard on :3000
 ```
 
 Then connect the owner wallet in the dashboard and deposit funds. Use the dashboard's Deposit button rather than a plain transfer, so P&L counts the deposit. Use `SIMULATE_ONLY=1 pnpm backend` to watch decisions without sending transactions.
+
+### Chat model
+
+Chat runs Claude Sonnet 5.5 through the [Hopscotch Labs](https://docs.hopscotchlabs.ai/) gateway on its Anthropic Messages endpoint. The code uses the Anthropic SDK pointed at `https://api.hopscotchlabs.ai`.
+
+| Variable | Default | |
+|---|---|---|
+| `HOPSCOTCH_API_KEY` | none | Your `ub_live_...` key. Only chat needs it; the agent trades without it. |
+| `HOPSCOTCH_MODEL` | `anthropic/claude-sonnet-5-5` | Hopscotch ids are `provider/model`. |
+| `HOPSCOTCH_BASE_URL` | `https://api.hopscotchlabs.ai` | The bare origin; the SDK appends `/v1/messages`. |
+
+To confirm the exact model id your key can call:
+
+```bash
+curl -s https://api.hopscotchlabs.ai/v1/models -H "Authorization: Bearer $HOPSCOTCH_API_KEY" | grep -o '"anthropic/claude[^"]*"'
+```
+
+Hopscotch does not forward `anthropic-beta` headers, so beta-only features such as server-side refusal fallbacks are not used.
 
 ## Demo script
 

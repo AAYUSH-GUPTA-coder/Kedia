@@ -15,8 +15,10 @@ export type ChatActions = {
 export type ChatTurn = { role: 'user' | 'assistant'; content: string };
 export type ChatResult = { reply: string; policy?: PolicyProposal; strategy?: StrategyProposal; trades: unknown[] };
 
-// The user picked Sonnet for chat latency during planning; override with CLAUDE_MODEL.
-const MODEL = process.env.CLAUDE_MODEL ?? 'claude-sonnet-5-5';
+// Claude Sonnet 5.5 served through the Hopscotch Labs gateway (Anthropic Messages wire).
+// Hopscotch ids are provider/model; check GET /v1/models if this one is refused.
+const MODEL = process.env.HOPSCOTCH_MODEL ?? 'anthropic/claude-sonnet-5-5';
+const BASE_URL = process.env.HOPSCOTCH_BASE_URL ?? 'https://api.hopscotchlabs.ai';
 const MAX_STEPS = 8;
 
 const SYSTEM = `You are the risk desk for a crypto trading vault on HSK Chain. An autonomous agent trades WHSK/USDT and WETH/USDT on HSKSwap through the vault. The vault contract enforces the user's limits; nothing you say can change them without the user's wallet signature.
@@ -31,7 +33,7 @@ Units: maxTradeUsd is in dollars. *Bps fields are basis points (100 bps = 1%). T
 Mapping hints: "less risk" or "halve my risk" means lower maxTradeUsd and dailyLossCapBps (halve both for "halve"). "Stop trading X" means remove X from allowedTokens in the policy and from the agent's symbols. USDT is the quote token: keep it allowed unless the user asks to stop all trading, in which case suggest pausing.
 Be brief. Use plain numbers with units.`;
 
-const tools: Anthropic.Beta.BetaTool[] = [
+const tools: Anthropic.Tool[] = [
   { name: 'get_state', description: 'Read vault positions, equity, P&L, on-chain policy, agent strategy and recent decisions.', input_schema: { type: 'object', properties: {} } },
   {
     name: 'propose_policy',
@@ -82,23 +84,28 @@ const tools: Anthropic.Beta.BetaTool[] = [
   },
 ];
 
-let _client: Anthropic | undefined; // lazy: the backend runs without an API key, only chat needs one
+// Lazy: the backend and agent run without a key; only chat needs one.
+let _client: Anthropic | undefined;
+function client(): Anthropic {
+  const apiKey = process.env.HOPSCOTCH_API_KEY;
+  if (!apiKey) throw new Error('Set HOPSCOTCH_API_KEY in Backend/.env to use chat.');
+  // authToken null: Hopscotch rejects a request carrying two different keys, so never pick up ANTHROPIC_AUTH_TOKEN.
+  return (_client ??= new Anthropic({ baseURL: BASE_URL, apiKey, authToken: null }));
+}
 
 export async function chat(history: ChatTurn[], actions: ChatActions): Promise<ChatResult> {
-  const messages: Anthropic.Beta.BetaMessageParam[] = history.map((t) => ({ role: t.role, content: t.content }));
+  const messages: Anthropic.MessageParam[] = history.map((t) => ({ role: t.role, content: t.content }));
   const out: ChatResult = { reply: '', trades: [] };
 
   for (let step = 0; step < MAX_STEPS; step++) {
-    const res = await (_client ??= new Anthropic()).beta.messages.create({
+    // No beta features: Hopscotch does not forward anthropic-beta headers.
+    const res = await client().messages.create({
       model: MODEL,
       max_tokens: 16000,
       system: SYSTEM,
       tools,
       messages,
       output_config: { effort: 'low' },
-      // Retry classifier declines on Anthropic's recommended fallback model.
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
     });
 
     if (res.stop_reason === 'refusal') return { ...out, reply: 'The model declined this request. Try rephrasing it.' };
@@ -109,7 +116,7 @@ export async function chat(history: ChatTurn[], actions: ChatActions): Promise<C
     messages.push({ role: 'assistant', content: res.content });
     if (res.stop_reason === 'pause_turn') continue;
 
-    const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
+    const results: Anthropic.ToolResultBlockParam[] = [];
     for (const call of res.content) {
       if (call.type !== 'tool_use') continue;
       const { content, isError } = await runTool(call.name, call.input as Record<string, unknown>, actions, out);
