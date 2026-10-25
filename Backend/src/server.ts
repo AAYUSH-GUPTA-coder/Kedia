@@ -20,9 +20,10 @@ export async function getState() {
   };
 }
 
-async function trade(body: { symbol: Asset; side: 'buy' | 'sell'; usd: number }, source: 'chat' | 'demo') {
-  if (!ASSETS.includes(body.symbol) || !['buy', 'sell'].includes(body.side) || !(body.usd > 0 && body.usd < 1e6)) throw new Error('invalid trade request');
-  return manualTrade(body.symbol, body.side, body.usd, source);
+async function trade(body: { symbol: Asset; side: 'buy' | 'sell'; amount: number; unit: 'usd' | 'asset' }, source: 'chat' | 'demo') {
+  const ok = ASSETS.includes(body.symbol) && ['buy', 'sell'].includes(body.side) && ['usd', 'asset'].includes(body.unit) && body.amount > 0 && body.amount < 1e12;
+  if (!ok) throw new Error('invalid trade request: need symbol WHSK|WETH, side buy|sell, unit usd|asset, amount > 0');
+  return manualTrade(body.symbol, body.side, { amount: body.amount, unit: body.unit }, source);
 }
 
 const routes: Record<string, (body: any) => Promise<unknown>> = {

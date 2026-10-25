@@ -29,7 +29,7 @@ export function PolicyPanel({ s, isOwner, refresh }: { s: State; isOwner: boolea
   async function tryBreach() {
     setBreach({ busy: true });
     try {
-      const r = await api.trade({ symbol: "WHSK", side: "buy", usd: p.maxTradeUsd * 10 });
+      const r = await api.trade({ symbol: "WHSK", side: "buy", amount: p.maxTradeUsd * 10, unit: "usd" });
       setBreach({ busy: false, text: r.error ? `Vault rejected it on-chain: ${fmtError(r.error)}` : `Executed?! ${r.kind}` });
     } catch (e) {
       setBreach({ busy: false, text: e instanceof Error ? e.message : String(e) });

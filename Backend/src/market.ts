@@ -1,5 +1,6 @@
 import { erc20Abi, formatUnits, type Address } from 'viem';
 import { cfg, QUOTER, token, VAULT, type Asset, type Sym } from './config.ts';
+import { toRaw } from './size.ts';
 import { feedAbi, publicClient, quoterAbi, vault } from './chain.ts';
 
 const SYMS = Object.keys(cfg.tokens) as Sym[];
@@ -89,8 +90,8 @@ export type Market = {
 export async function readMarket(sym: Asset, usd: number, oracle: number): Promise<Market> {
   const t = cfg.tokens[sym];
   const dec = t.decimals;
-  const usdtIn = BigInt(Math.floor(usd * 1e6));
-  const assetIn = BigInt(Math.floor((usd / oracle) * 10 ** Math.min(dec, 12))) * 10n ** BigInt(Math.max(dec - 12, 0));
+  const usdtIn = toRaw(usd, 6);
+  const assetIn = toRaw(usd / oracle, dec);
   const [assetOut, usdtOut, exchange] = await Promise.all([
     quote('USDT', sym, usdtIn, t.fee), quote(sym, 'USDT', assetIn, t.fee), exchangeMid(t.exchangeSymbol),
   ]);

@@ -31,7 +31,7 @@ export const api = {
   log: () => call<LogEntry[]>("/log"),
   chat: (messages: ChatTurn[]) => call<ChatResult>("/chat", { messages }),
   strategy: (patch: Partial<Strategy>) => call<Strategy>("/strategy", patch),
-  trade: (t: { symbol: Sym; side: "buy" | "sell"; usd: number }) => call<LogEntry>("/trade", t),
+  trade: (t: { symbol: Sym; side: "buy" | "sell"; amount: number; unit: "usd" | "asset" }) => call<LogEntry>("/trade", t),
 };
 
 export const usd = (x: number) => `$${x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

@@ -9,7 +9,7 @@ export type ChatActions = {
   /** Validates and returns an error message, or null. */
   checkStrategy(s: StrategyProposal): string | null;
   /** Sends a real trade through the vault. The vault's limits decide whether it executes. */
-  attemptTrade(a: { symbol: 'WHSK' | 'WETH'; side: 'buy' | 'sell'; usd: number }): Promise<unknown>;
+  attemptTrade(a: { symbol: 'WHSK' | 'WETH'; side: 'buy' | 'sell'; amount: number; unit: 'usd' | 'asset' }): Promise<unknown>;
 };
 
 export type ChatTurn = { role: 'user' | 'assistant'; content: string };
@@ -30,6 +30,7 @@ What you can do:
 - propose_strategy: propose changes to the agent's off-chain settings (mode, symbols, trade size, edge, slippage, loop interval). Send only the fields that change. The user confirms it.
 - attempt_trade: place one trade, only when the user explicitly asks you to trade. Do it even if it obviously breaks a limit: the point is to show the vault refusing it. Report the outcome plainly, including the revert name and transaction hash.
 
+Trade sizes: pass the user's number as typed. Use unit 'asset' for token amounts and 'usd' for dollar amounts; never convert between them yourself. HSK means WHSK and ETH means WETH. If the vault lacks the balance, the tool says so; relay it.
 Units: maxTradeUsd is in dollars. *Bps fields are basis points (100 bps = 1%). Times are seconds.
 Mapping hints: "less risk" or "halve my risk" means lower maxTradeUsd and dailyLossCapBps (halve both for "halve"). "Stop trading X" means remove X from allowedTokens in the policy and from the agent's symbols. USDT is the quote token: keep it allowed unless the user asks to stop all trading, in which case suggest pausing.
 Be brief. Use plain numbers with units.`;
@@ -72,9 +73,10 @@ const tools: OpenAI.ChatCompletionTool[] = [
     properties: {
       symbol: { type: 'string', enum: ['WHSK', 'WETH'] },
       side: { type: 'string', enum: ['buy', 'sell'], description: 'buy = spend USDT for the asset' },
-      usd: { type: 'number', description: 'Trade size in USD' },
+      amount: { type: 'number', description: 'Trade size, in the unit below' },
+      unit: { type: 'string', enum: ['usd', 'asset'], description: "'usd' for dollar amounts ($10). 'asset' for token amounts (10 HSK, 0.002 ETH): sells spend exactly that many tokens." },
     },
-    required: ['symbol', 'side', 'usd'],
+    required: ['symbol', 'side', 'amount', 'unit'],
   }),
 ];
 
