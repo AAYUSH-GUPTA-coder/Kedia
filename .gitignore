@@ -1,0 +1,11 @@
+node_modules/
+.env
+.env.local
+.next/
+dist/
+SmartContracts/out/
+SmartContracts/cache/
+SmartContracts/broadcast/**/dry-run/
+Backend/state.json
+Backend/trades.json
+.DS_Store

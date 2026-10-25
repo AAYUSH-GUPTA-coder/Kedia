@@ -1,0 +1,29 @@
+{
+  "chainId": 177,
+  "rpcUrl": "https://mainnet.hsk.xyz",
+  "explorer": "https://hashkey.blockscout.com",
+  "vault": "0x0000000000000000000000000000000000000000",
+  "deployBlock": 0,
+  "hskswap": {
+    "factory": "0x972cA9D1662F5e029cD18327D29026532E84c742",
+    "swapRouter02": "0x2c16f75b95Cf1390c328aB70e2CEE7f4b80bD8F3",
+    "quoterV2": "0x603f70466fDdbE3F238220B9a74FFF419a2BbFDD"
+  },
+  "tokens": {
+    "USDT": { "address": "0xF1B50eD67A9e2CC94Ad3c477779E2d4cBfFf9029", "decimals": 6 },
+    "WHSK": { "address": "0xB210D2120d57b758EE163cFfb43e73728c471Cf1", "decimals": 18, "exchangeSymbol": "HSKUSDT", "pool": "0x4ff515761864e7838b0adb8b5b2b8b7a068905dc", "fee": 3000 },
+    "WETH": { "address": "0xefd4bC9afD210517803f293ABABd701CaeeCdfd0", "decimals": 18, "exchangeSymbol": "ETHUSDT", "pool": "0xb92b79ed6b370d5cfee2e14b1d0983c258304c16", "fee": 3000 }
+  },
+  "feeds": {
+    "USDT": "0x0000000000000000000000000000000000000000",
+    "WHSK": "0x0000000000000000000000000000000000000000",
+    "WETH": "0x0000000000000000000000000000000000000000"
+  },
+  "aproFeeds": {
+    "USDT": "0x823d7f90f7A3498DB6595886b6B5dC95E6B0B7f3",
+    "WHSK": "0x86CE42c1b714149Dc3A7b17169EF67b5F78A224b",
+    "WETH": "0xbB091f3b515059b7A887eDcC73dC2a2Fa65E0242"
+  },
+  "supra": { "storage": "0x58e158c74DF7Ad6396C0dcbadc4878faC9e93d57", "pairs": { "USDT": 48, "WHSK": 517, "WETH": 1 } },
+  "exchangeApi": "https://api-glb.hashkey.com"
+}

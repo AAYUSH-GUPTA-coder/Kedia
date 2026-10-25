@@ -1,0 +1,129 @@
+"use client";
+
+import { useState } from "react";
+import { writeContract } from "wagmi/actions";
+import { cfg, vault, wagmiConfig } from "@/lib/config";
+import { api, fmtError, pct, usd, type ChatTurn, type PolicyProposal, type State, type StrategyProposal, type LogEntry } from "@/lib/api";
+import { proposalCalls } from "@/lib/policy";
+import { useVaultTx } from "@/lib/useVaultTx";
+import { Button, Panel, TxLink, TxResult } from "./ui";
+import type { Address } from "viem";
+
+type Msg = ChatTurn & { policy?: PolicyProposal; strategy?: StrategyProposal; trades?: LogEntry[] };
+
+const SUGGESTIONS = ["What are my positions and P&L?", "Halve my risk and stop trading WETH", "Buy $100 of WHSK right now", "Switch to momentum with $3 trades"];
+
+export function Chat({ s, isOwner, refresh }: { s: State; isOwner: boolean; refresh: () => void }) {
+  const [msgs, setMsgs] = useState<Msg[]>([]);
+  const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function send(text: string) {
+    if (!text.trim() || busy) return;
+    const next: Msg[] = [...msgs, { role: "user", content: text.trim() }];
+    setMsgs(next);
+    setInput("");
+    setBusy(true);
+    try {
+      const r = await api.chat(next.map(({ role, content }) => ({ role, content })));
+      setMsgs([...next, { role: "assistant", content: r.reply, policy: r.policy, strategy: r.strategy, trades: r.trades }]);
+      if (r.trades.length) refresh();
+    } catch (e) {
+      setMsgs([...next, { role: "assistant", content: `Error: ${e instanceof Error ? e.message : String(e)}` }]);
+    }
+    setBusy(false);
+  }
+
+  return (
+    <Panel title="Talk to the agent">
+      <div className="max-h-[28rem] space-y-3 overflow-y-auto pr-1 text-sm">
+        {msgs.length === 0 && (
+          <div className="flex flex-wrap gap-2">
+            {SUGGESTIONS.map((q) => <button key={q} onClick={() => send(q)} className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/70 hover:bg-white/10">{q}</button>)}
+          </div>
+        )}
+        {msgs.map((m, i) => (
+          <div key={i} className={m.role === "user" ? "ml-8 rounded-lg bg-sky-500/10 p-2" : "mr-8"}>
+            <p className="whitespace-pre-wrap">{m.content}</p>
+            {m.trades?.map((t, j) => (
+              <p key={j} className={`mt-1 font-mono text-xs ${t.kind === "trade" ? "text-emerald-400" : "text-rose-300"}`}>
+                {t.kind === "trade" ? `executed ${t.side} ${t.sym}` : `rejected: ${fmtError(t.error)}`} <TxLink hash={t.txHash} />
+              </p>
+            ))}
+            {m.policy && <PolicyDiff s={s} p={m.policy} isOwner={isOwner} refresh={refresh} />}
+            {m.strategy && <StrategyDiff s={s} p={m.strategy} refresh={refresh} />}
+          </div>
+        ))}
+        {busy && <p className="text-white/40">Thinking…</p>}
+      </div>
+      <form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); void send(input); }}>
+        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="e.g. take less risk" className="flex-1 rounded-lg border border-white/15 bg-black px-3 py-2 text-sm" />
+        <Button variant="primary" disabled={busy || !input.trim()}>Send</Button>
+      </form>
+    </Panel>
+  );
+}
+
+function Row({ k, from, to }: { k: string; from: string; to: string }) {
+  const changed = from !== to;
+  return (
+    <tr className={changed ? "text-white" : "text-white/40"}>
+      <td className="py-0.5 pr-3">{k}</td>
+      <td className="py-0.5 pr-3 text-right tabular-nums">{from}</td>
+      <td className={`py-0.5 text-right tabular-nums ${changed ? "font-semibold text-amber-300" : ""}`}>{to}</td>
+    </tr>
+  );
+}
+
+function PolicyDiff({ s, p, isOwner, refresh }: { s: State; p: PolicyProposal; isOwner: boolean; refresh: () => void }) {
+  const cur = s.vault.policy;
+  const tx = useVaultTx(refresh);
+  const allowedNow = s.vault.positions.filter((x) => x.allowed).map((x) => x.sym).join(", ");
+  function sign() {
+    const tokens = s.vault.positions.map((x) => ({ sym: x.sym, address: x.address as Address, allowed: x.allowed, feed: x.feed as Address }));
+    const calls = proposalCalls(p, tokens, cfg.feeds);
+    void tx.send("Apply policy", () => writeContract(wagmiConfig, { ...vault, functionName: "multicall", args: [calls] }));
+  }
+  return (
+    <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+      <div className="text-xs font-semibold uppercase tracking-wider text-amber-300">Proposed on-chain policy</div>
+      <table className="mt-2 w-full text-xs">
+        <thead className="text-white/40"><tr><th className="text-left font-normal">Limit</th><th className="text-right font-normal">Now</th><th className="text-right font-normal">Proposed</th></tr></thead>
+        <tbody>
+          <Row k="Max trade" from={usd(cur.maxTradeUsd)} to={usd(p.maxTradeUsd)} />
+          <Row k="Daily loss cap" from={pct(cur.dailyLossCapBps)} to={pct(p.dailyLossCapBps)} />
+          <Row k="Oracle band" from={pct(cur.maxOracleDeviationBps)} to={pct(p.maxOracleDeviationBps)} />
+          <Row k="Cooldown" from={`${cur.cooldownSeconds}s`} to={`${p.cooldownSeconds}s`} />
+          <Row k="Oracle age" from={`${cur.maxOracleAge}s`} to={`${p.maxOracleAge}s`} />
+          <Row k="Tokens" from={allowedNow} to={p.allowedTokens.join(", ")} />
+        </tbody>
+      </table>
+      <p className="mt-2 text-xs text-white/50">{p.rationale}</p>
+      <div className="mt-2">
+        {isOwner ? <Button variant="primary" disabled={!!tx.busy} onClick={sign}>{tx.busy ? "Confirm in wallet…" : "Sign & apply"}</Button> : <span className="text-xs text-white/40">Connect the owner wallet to sign.</span>}
+      </div>
+      <TxResult result={tx.result} />
+    </div>
+  );
+}
+
+function StrategyDiff({ s, p, refresh }: { s: State; p: StrategyProposal; refresh: () => void }) {
+  const [done, setDone] = useState<string | null>(null);
+  const { rationale, ...patch } = p;
+  const cur = s.strategy as Record<string, unknown>;
+  return (
+    <div className="mt-2 rounded-lg border border-sky-500/30 bg-sky-500/5 p-3">
+      <div className="text-xs font-semibold uppercase tracking-wider text-sky-300">Proposed agent strategy</div>
+      <table className="mt-2 w-full text-xs"><tbody>
+        {Object.entries(patch).map(([k, v]) => <Row key={k} k={k} from={String(cur[k])} to={String(v)} />)}
+      </tbody></table>
+      <p className="mt-2 text-xs text-white/50">{rationale}</p>
+      <div className="mt-2">
+        <Button variant="primary" disabled={!!done} onClick={async () => {
+          try { await api.strategy(patch); setDone("Applied."); refresh(); } catch (e) { setDone(e instanceof Error ? e.message : String(e)); }
+        }}>Confirm</Button>
+        {done && <span className="ml-2 text-xs text-white/50">{done}</span>}
+      </div>
+    </div>
+  );
+}
