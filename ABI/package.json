@@ -1,0 +1,9 @@
+{
+  "name": "@kedia/abi",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./addresses.json": "./addresses.json",
+    "./GuardedVault": "./GuardedVault.ts"
+  }
+}
