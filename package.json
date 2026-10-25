@@ -7,6 +7,7 @@
     "frontend": "pnpm --filter frontend dev",
     "abi": "SmartContracts/export-abi.sh",
     "test": "cd SmartContracts && forge test && cd .. && node --test Backend/src/*.test.ts AI/src/*.test.ts Frontend/src/lib/*.test.ts",
-    "typecheck": "pnpm --filter backend --filter @kedia/ai --filter frontend exec tsc --noEmit"
+    "typecheck": "pnpm --filter backend --filter @kedia/ai --filter frontend exec tsc --noEmit",
+    "check:ai": "pnpm --filter backend check:ai"
   }
 }

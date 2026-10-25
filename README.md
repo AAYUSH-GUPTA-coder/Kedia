@@ -22,7 +22,7 @@ Only the owner wallet can change the policy, pause, deposit or withdraw. A chat 
 SmartContracts/  Foundry: GuardedVault, SupraFeedAdapter, mainnet-fork tests, deploy script
 ABI/             Shared config: addresses.json (chain 177) and the generated vault ABI (JSON + typed TS)
 Backend/         Node 24 + viem: market data, strategies, agent loop, HTTP API
-AI/              Claude Sonnet 5.5 tool-use chat via Hopscotch Labs: get_state, propose_policy, propose_strategy, attempt_trade
+AI/              Claude Sonnet 5.5 tool-calling chat via Hopscotch Labs: get_state, propose_policy, propose_strategy, attempt_trade
 Frontend/        Next.js + wagmi: dashboard, trade log, chat, sign-to-apply, guardrail demo
 ```
 
@@ -49,6 +49,38 @@ Requirements: Foundry 1.8.6 (`foundryup --install 1.8.6`), Node 24, pnpm.
 git submodule update --init --recursive
 pnpm install
 pnpm test        # 21 fork tests + backend, AI and frontend unit tests
+```
+
+### Test locally on a mainnet fork (fake money)
+
+Terminal 1, from the repo root, starts a local copy of HSK mainnet:
+
+```bash
+anvil --fork-url https://mainnet.hsk.xyz --port 8547
+```
+
+Terminal 2, from the repo root, deploys and funds a test vault (30 USDT + 300 WHSK):
+
+```bash
+SmartContracts/fork-setup.sh
+```
+
+Still in terminal 2, start the backend against the fork with anvil's test operator key. These values override `Backend/.env` for this run only; chat still uses your Hopscotch key from `.env`.
+
+```bash
+RPC_URL=http://127.0.0.1:8547 OPERATOR_PRIVATE_KEY=0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d pnpm backend
+```
+
+Terminal 3, from the repo root, starts the dashboard at http://localhost:3000:
+
+```bash
+NEXT_PUBLIC_RPC_URL=http://127.0.0.1:8547 pnpm frontend
+```
+
+The fork owner is anvil account 0, so signing owner actions needs that test key imported in your wallet. Everything else works without a wallet. When done, stop all three and restore the mainnet config before deploying for real:
+
+```bash
+git checkout ABI/addresses.json
 ```
 
 ### Deploy to mainnet
@@ -80,21 +112,28 @@ Then connect the owner wallet in the dashboard and deposit funds. Use the dashbo
 
 ### Chat model
 
-Chat runs Claude Sonnet 5.5 through the [Hopscotch Labs](https://docs.hopscotchlabs.ai/) gateway on its Anthropic Messages endpoint. The code uses the Anthropic SDK pointed at `https://api.hopscotchlabs.ai`.
+Chat runs Claude Sonnet 5.5 through the [Hopscotch Labs](https://docs.hopscotchlabs.ai/) gateway. Hopscotch serves this model only on its OpenAI-compatible `/v1/chat/completions` endpoint, so the AI module uses the `openai` client pointed at Hopscotch.
 
 | Variable | Default | |
 |---|---|---|
 | `HOPSCOTCH_API_KEY` | none | Your `ub_live_...` key. Only chat needs it; the agent trades without it. |
 | `HOPSCOTCH_MODEL` | `anthropic/claude-sonnet-5-5` | Hopscotch ids are `provider/model`. |
-| `HOPSCOTCH_BASE_URL` | `https://api.hopscotchlabs.ai` | The bare origin; the SDK appends `/v1/messages`. |
+| `HOPSCOTCH_BASE_URL` | `https://api.hopscotchlabs.ai/v1` | A value without `/v1` is accepted; the code appends it. |
 
-To confirm the exact model id your key can call:
+To check the backend can read your key and reach the model, run this from the repo root. It sends one tiny request:
 
 ```bash
+pnpm check:ai
+```
+
+To list the Claude ids your key can call, load the key into your shell first. Without that step, `$HOPSCOTCH_API_KEY` is empty and the command prints nothing.
+
+```bash
+export $(grep '^HOPSCOTCH_API_KEY=' Backend/.env)
 curl -s https://api.hopscotchlabs.ai/v1/models -H "Authorization: Bearer $HOPSCOTCH_API_KEY" | grep -o '"anthropic/claude[^"]*"'
 ```
 
-Hopscotch does not forward `anthropic-beta` headers, so beta-only features such as server-side refusal fallbacks are not used.
+Hopscotch refuses `reasoning_effort` for this model, so requests run at the model's default effort.
 
 ## Demo script
 
