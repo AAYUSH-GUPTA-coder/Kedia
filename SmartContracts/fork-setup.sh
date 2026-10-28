@@ -15,7 +15,7 @@ WHSK=0xB210D2120d57b758EE163cFfb43e73728c471Cf1
 
 cast chain-id -r $R >/dev/null 2>&1 || { echo "No fork on $R. Start: anvil --fork-url https://mainnet.hsk.xyz --port 8547"; exit 1; }
 
-# Mine a block every 2s so block time tracks the wall clock; otherwise the vault cooldown never ends between trades.
+# Mine a block every 2s so block time tracks the wall clock, which the stop-loss day boundary relies on.
 cast rpc evm_setIntervalMining 2 -r $R >/dev/null
 
 OPERATOR=$OPERATOR forge script script/Deploy.s.sol --rpc-url $R --broadcast --private-key $OWNER_PK >/dev/null

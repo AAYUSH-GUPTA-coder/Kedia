@@ -21,7 +21,7 @@ export function PolicyPanel({ s, isOwner, refresh }: { s: State; isOwner: boolea
     ["Max trade size", usd(p.maxTradeUsd)],
     ["Daily loss cap (stop-loss)", pct(p.dailyLossCapBps)],
     ["Max fill vs oracle shortfall", pct(p.maxOracleDeviationBps)],
-    ["Cooldown between trades", `${p.cooldownSeconds}s`],
+    ["Cooldown between trades", p.cooldownSeconds ? `${p.cooldownSeconds}s` : "Off"],
     ["Max oracle age", `${Math.round(p.maxOracleAge / 3600)}h`],
     ["Tradable tokens", s.vault.positions.filter((x) => x.allowed).map((x) => x.sym).join(", ") || "none"],
   ];

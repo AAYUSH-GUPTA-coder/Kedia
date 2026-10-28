@@ -8,7 +8,7 @@ const MODE = { meanReversion: "Mean reversion", momentum: "Momentum", off: "Off"
 export function Decisions({ s }: { s: State }) {
   const a = s.agent;
   const st = s.strategy;
-  const meta = [MODE[st.mode], `$${st.tradeUsd} per trade`, `${st.edgeBps} bps edge`, `every ${st.loopSeconds}s`, `${a.operatorGasHsk.toFixed(3)} HSK gas`];
+  const meta = [MODE[st.mode], `$${st.tradeUsd} per trade`, `${st.edgeBps} bps edge`, `checks every ${st.loopSeconds}s`, `trades at most every ${a.cooldownSeconds / 60} min`, `${a.operatorGasHsk.toFixed(3)} HSK gas`];
   return (
     <Panel title="Agent" right={<span className="text-xs text-white/45">{meta.join(" · ")}</span>}>
       {a.simulateOnly && <p className="mb-3 text-xs text-amber-300">Simulate-only mode: decisions are checked against the vault but never sent.</p>}

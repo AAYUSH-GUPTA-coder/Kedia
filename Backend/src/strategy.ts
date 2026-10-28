@@ -1,4 +1,14 @@
 import type { Market } from './market.ts';
+import type { LogEntry } from './store.ts';
+
+/** The agent's own gap between trades. Chat and demo trades neither wait for it nor reset it. */
+export const AGENT_COOLDOWN_SECONDS = 300;
+
+/** Seconds until the agent may trade again, counted from its last successful trade in the log (newest first). */
+export function agentCooldownLeft(log: Pick<LogEntry, 'ts' | 'kind' | 'source'>[], nowMs: number): number {
+  const last = log.find((e) => e.source === 'agent' && e.kind === 'trade');
+  return last ? Math.max(0, Math.ceil((last.ts + AGENT_COOLDOWN_SECONDS * 1000 - nowMs) / 1000)) : 0;
+}
 
 export type Mode = 'meanReversion' | 'momentum' | 'off';
 export type Signal = { action: 'buy' | 'sell' | 'hold'; reason: string };

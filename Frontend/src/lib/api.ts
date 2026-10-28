@@ -8,7 +8,7 @@ export type State = {
   vault: { address: string; owner: string; operator: string; paused: boolean; policy: Policy; lastTradeAt: number; dayStartEquity: number; lossFloor: number; equity: number; positions: Position[] };
   pnl: { netDepositsUsd: number; pnlUsd: number; dayChangePct: number };
   strategy: Strategy;
-  agent: { lastTickAt: number; decisions: Decision[]; lastError: string | null; simulateOnly: boolean; operatorGasHsk: number };
+  agent: { lastTickAt: number; decisions: Decision[]; lastError: string | null; simulateOnly: boolean; operatorGasHsk: number; cooldownSeconds: number };
 };
 export type LogEntry = {
   ts: number; kind: "trade" | "rejected" | "simulated"; source: "agent" | "chat" | "demo"; sym: string; side: "buy" | "sell";

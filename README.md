@@ -135,7 +135,7 @@ The last two checks run after the swap, so a revert undoes the whole trade. That
 |---|---|---|
 | Allowed tokens | USDT, WHSK, WETH | Trading anything you did not approve |
 | Max trade size | $10 | A runaway or mistaken order |
-| Cooldown | 5 minutes | Rapid-fire trading and churn |
+| Cooldown | Off | Rapid-fire trading, if you turn it on. The agent already waits 5 minutes between its own trades, and trades you ask for in chat go straight through |
 | Oracle freshness | 26 hours | Trading on a dead price feed |
 | Price band | 5% | Bad fills from thin or manipulated pools |
 | Daily loss cap | 5% of the day's starting equity | Losing more than you accepted in one day |

@@ -32,7 +32,7 @@ contract Deploy is Script {
                 maxTradeUsd: 10e8, // $10
                 dailyLossCapBps: 500, // 5%
                 maxOracleDeviationBps: 500, // 5%: oracle lag + 0.3% fee + impact
-                cooldownSeconds: 300,
+                cooldownSeconds: 0, // off: the agent spaces its own trades, so trades you ask for in chat are never held back
                 maxOracleAge: 93_600 // 26h
             })
         );

@@ -2,12 +2,12 @@ import { formatUnits, parseEventLogs } from 'viem';
 import { ASSETS, cfg, SIMULATE_ONLY, token, type Asset } from './config.ts';
 import { decodeRevert, publicClient, vault, wallet } from './chain.ts';
 import { readMarket, readVault } from './market.ts';
-import { meanReversion, momentum, type Signal } from './strategy.ts';
-import { appendLog, loadStrategy, type LogEntry } from './store.ts';
+import { AGENT_COOLDOWN_SECONDS, agentCooldownLeft, meanReversion, momentum, type Signal } from './strategy.ts';
+import { appendLog, loadStrategy, readLog, type LogEntry } from './store.ts';
 import { inputUnits, toRaw, type TradeSize } from './size.ts';
 
 export type Decision = Signal & { sym: Asset | '-'; ref?: number; buy?: number; sell?: number; oracle?: number };
-export const status = { lastTickAt: 0, decisions: [] as Decision[], lastError: null as string | null, simulateOnly: SIMULATE_ONLY };
+export const status = { lastTickAt: 0, decisions: [] as Decision[], lastError: null as string | null, simulateOnly: SIMULATE_ONLY, cooldownSeconds: AGENT_COOLDOWN_SECONDS };
 
 const history: Record<Asset, number[]> = { WHSK: [], WETH: [] };
 
@@ -83,9 +83,7 @@ async function decide(decisions: Decision[]): Promise<void> {
 
   const v = await readVault();
   if (v.paused) return void decisions.push({ sym: '-', action: 'hold', reason: 'vault paused by owner' });
-  // The vault times the cooldown by block time, which on an idle anvil fork stops moving, so use the chain's clock.
-  const now = Number((await publicClient.getBlock()).timestamp);
-  const cooling = now < v.lastTradeAt + v.policy.cooldownSeconds;
+  const cooldownLeft = agentCooldownLeft(readLog(), Date.now());
   const usd = Math.min(s.tradeUsd, v.policy.maxTradeUsd * 0.98); // margin for USDT/oracle rounding
   const usdt = v.positions.find((p) => p.sym === 'USDT')!;
 
@@ -101,8 +99,8 @@ async function decide(decisions: Decision[]): Promise<void> {
     const d: Decision = { sym, ...sig, ref: m.ref, buy: m.buy.price, sell: m.sell.price, oracle: m.oracle };
     decisions.push(d);
     if (sig.action === 'hold') continue;
-    if (cooling) {
-      d.reason += ' (waiting for vault cooldown)';
+    if (cooldownLeft) {
+      d.reason += ` (agent cooldown, ${cooldownLeft}s left)`;
       continue;
     }
     const [amountIn, quoted, have] = sig.action === 'buy' ? [m.buy.usdtIn, m.buy.assetOut, usdt.raw] : [m.sell.assetIn, m.sell.usdtOut, pos.raw];
@@ -112,7 +110,7 @@ async function decide(decisions: Decision[]): Promise<void> {
     }
     const minOut = (quoted * BigInt(10_000 - s.slippageBps)) / 10_000n;
     await submitSwap({ sym, side: sig.action, amountIn, minOut, source: 'agent', reason: sig.reason });
-    return; // one trade per tick; the vault enforces the cooldown anyway
+    return; // one trade per tick
   }
 }
 
