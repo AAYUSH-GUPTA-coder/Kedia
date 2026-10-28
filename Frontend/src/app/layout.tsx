@@ -8,7 +8,7 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Guarded Trader",
+  title: "Kedia",
   description: "An AI trading agent on HSKSwap whose limits are enforced by a vault contract on HSK Chain.",
 };
 

@@ -141,7 +141,7 @@ export function Dashboard() {
         <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <Mark />
-            <h1 className="font-semibold tracking-tight">Guarded Trader</h1>
+            <h1 className="font-semibold tracking-tight">Kedia</h1>
             <p className="hidden truncate text-sm text-faint md:block">An AI agent trading on HSKSwap inside limits the vault enforces on-chain.</p>
           </div>
           <Wallet owner={s?.vault.owner} />

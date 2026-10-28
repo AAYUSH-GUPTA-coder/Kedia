@@ -1,8 +1,8 @@
-# Guarded Trader
+# Kedia
 
 **An AI trading agent you can hand your money to, because it cannot break your rules.**
 
-Guarded Trader runs an AI agent that trades for you around the clock on **HSKSwap**, the DEX on **HSK Chain**. Your funds stay in a vault contract that you own. The agent can ask the vault to make a trade, but the vault checks every trade against your limits and refuses anything that breaks them. You change those limits by chatting in plain English, and nothing changes until you sign it with your wallet.
+Kedia runs an AI agent that trades for you around the clock on **HSKSwap**, the DEX on **HSK Chain**. Your funds stay in a vault contract that you own. The agent can ask the vault to make a trade, but the vault checks every trade against your limits and refuses anything that breaks them. You change those limits by chatting in plain English, and nothing changes until you sign it with your wallet.
 
 Built for the HSK Chain Horizon Hackathon (Mumbai), Track 1: AI Agent Trading.
 

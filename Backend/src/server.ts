@@ -27,7 +27,7 @@ async function readTarget(url: URL): Promise<Address> {
   if (!q) return DEMO_VAULT;
   if (!isAddress(q)) throw new HttpError(400, 'vault must be an address');
   const v = getAddress(q);
-  if (!(await listVaults()).some((x) => isAddressEqual(x, v))) throw new HttpError(404, 'not a Guarded Trader vault');
+  if (!(await listVaults()).some((x) => isAddressEqual(x, v))) throw new HttpError(404, 'not a Kedia vault');
   return v;
 }
 
