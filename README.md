@@ -27,6 +27,35 @@ Most AI trading bots protect you with instructions in a prompt. A prompt is a re
 | **Full visibility** | The dashboard shows positions, P&L, today's stop-loss floor, the agent's reasoning, and every trade and rejection with an explorer link. |
 | **Exit any time** | You can pause trading or withdraw instantly. Withdrawals never depend on the price oracle. |
 
+## Example: one day with a $40 vault
+
+You deposit 30 USDT and 115 WHSK (about $10), so your vault is worth **$40**. You keep the default rules: $10 max trade, 5% daily loss cap, 5% price band. The agent's first trade of the day records $40 as the starting point, so today's stop-loss floor is **$38**.
+
+| Time | What happens | What the vault does | A bot holding your key instead |
+|---|---|---|---|
+| 10:15 | HSKSwap sells WHSK 0.8% below the HashKey Exchange price. The agent buys $5 of WHSK. | Every check passes. Trade kept. | Same trade. |
+| 11:40 | The agent sells $5 of WHSK. A bot front-runs it and pushes the pool price down 12% in the same block. | The fill is worth $4.40, more than 5% below the oracle value. `ExecutionPriceDeviates`: the swap is undone and you lose only gas, about 1 cent. | Sells at a 12% loss. |
+| 13:00 | A bug in a strategy update sizes the next order at $100 instead of $5. | `TradeTooLarge`. Nothing moves. | Puts $100 of your funds into one trade. |
+| 14:30 | HSK falls 15% across the market. Your $15 of WHSK drops to about $12.75, so the vault is worth $37.75, below the $38 floor. The agent sees a cheap pool and tries to buy the dip. | `DailyLossCapBreached`. While equity is under the floor, every trade is refused. | Keeps buying the dip with your remaining USDT, so the loss grows. |
+| 18:00 | You type "halve my risk and stop trading WETH" and press **Sign & apply**. | One transaction: max trade $5, loss cap 2.5%, WETH blocked. The agent cannot undo it. | You edit a config file or prompt and hope the bot follows it. |
+| 00:00 UTC | A new day starts. | The next trade records a new starting point, and the 2.5% cap applies from there. | — |
+
+```mermaid
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#2563eb, #dc2626"}}}}%%
+xychart-beta
+    title "Blue = vault value, Red = today's stop-loss floor (USD)"
+    x-axis ["10:15", "11:40", "13:00", "14:30", "16:00", "18:00"]
+    y-axis 34 --> 42
+    line [40.0, 40.0, 40.0, 37.75, 37.6, 37.7]
+    line [38, 38, 38, 38, 38, 38]
+```
+
+The blue line is the vault's value, and the red line is today's floor. Once value crosses below the floor, the agent cannot trade again until value recovers above it or the next day begins.
+
+The stop-loss stops the *agent*. It does not sell what you already hold, so your WHSK still moves with the market. To get out completely, press **Pause** or withdraw; withdrawals never depend on the oracle.
+
+Each row is behaviour the fork tests check against real HSKSwap pools: `test_revert_executionPriceDeviates_manipulatedPool`, `test_revert_tradeTooLarge`, `test_revert_dailyLossCap_thenResetsNextDay` and `test_ownerBatchesPolicyChangeWithMulticall`.
+
 ## How it works
 
 ### The pieces
@@ -272,5 +301,5 @@ Hopscotch refuses `reasoning_effort` for this model, so requests run at the mode
 ## Known limits
 
 - Single owner, single vault, no upgradeability. The backend has no auth and listens on 127.0.0.1 only.
-- The stop-loss is marked at oracle prices, so a stale or lagging feed can halt trading for the rest of the UTC day. That is the guardrail working. The owner resets it by depositing, withdrawing or raising the cap.
+- The stop-loss is marked at oracle prices, so a lagging feed can hold equity under the floor and block trading until the price recovers or the next UTC day starts. That is the guardrail working. The owner can also reset it by depositing, withdrawing or raising the cap.
 - Supra's on-chain prices are refreshed by whoever pushes Supra proofs. The vault refuses to trade if a price is older than the freshness limit.
