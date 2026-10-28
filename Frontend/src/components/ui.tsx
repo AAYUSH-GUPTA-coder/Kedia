@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
 import { explorerTx } from "@/lib/config";
 
+/** A titled section. Chrome comes from the parent (open content plane or bordered rail). */
 export function Panel({ title, right, children }: { title: string; right?: ReactNode; children: ReactNode }) {
   return (
-    <section className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-white/50">{title}</h2>
+    <section>
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 className="text-sm font-semibold">{title}</h2>
         {right}
       </div>
       {children}
@@ -13,13 +14,14 @@ export function Panel({ title, right, children }: { title: string; right?: React
   );
 }
 
-export function Stat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "good" | "bad" }) {
+export function Metric({ label, value, sub, tone, lead, children }: { label: string; value: string; sub?: ReactNode; tone?: "good" | "bad"; lead?: boolean; children?: ReactNode }) {
   const color = tone === "good" ? "text-emerald-400" : tone === "bad" ? "text-rose-400" : "text-white";
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+    <div>
       <div className="text-xs text-white/50">{label}</div>
-      <div className={`mt-1 text-2xl font-semibold tabular-nums ${color}`}>{value}</div>
-      {sub && <div className="mt-1 text-xs text-white/40">{sub}</div>}
+      <div className={`mt-1 font-semibold tabular-nums tracking-tight ${lead ? "text-3xl" : "text-2xl"} ${color}`}>{value}</div>
+      {sub && <div className="mt-1 text-xs text-white/45">{sub}</div>}
+      {children}
     </div>
   );
 }
@@ -31,10 +33,17 @@ export function Button({ children, onClick, disabled, variant = "default" }: { c
     danger: "border-rose-500/40 bg-rose-500/15 text-rose-200 hover:bg-rose-500/25",
   }[variant];
   return (
-    <button onClick={onClick} disabled={disabled} className={`rounded-lg border px-3 py-1.5 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 ${styles}`}>
+    <button onClick={onClick} disabled={disabled} className={`rounded-lg border px-3 py-1.5 text-sm transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400 disabled:cursor-not-allowed disabled:opacity-40 ${styles}`}>
       {children}
     </button>
   );
+}
+
+export const field = "rounded-lg border border-white/15 bg-black px-3 py-2 text-sm placeholder:text-white/40 focus:border-white/40 focus:outline-none";
+
+export function Dot({ tone }: { tone: "good" | "bad" | "warn" | "muted" }) {
+  const c = { good: "bg-emerald-400", bad: "bg-rose-400", warn: "bg-amber-400", muted: "bg-white/30" }[tone];
+  return <span aria-hidden className={`inline-block size-1.5 shrink-0 rounded-full ${c}`} />;
 }
 
 export function TxLink({ hash }: { hash?: string }) {

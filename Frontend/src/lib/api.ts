@@ -46,6 +46,7 @@ const USD_ERRORS: Record<string, string[]> = {
 };
 export function fmtError(e?: { name: string; args: string[] }): string {
   if (!e) return "";
+  if (e.name === "CooldownActive") return `CooldownActive: next trade allowed at ${new Date(Number(e.args[0]) * 1000).toLocaleTimeString()}`;
   const labels = USD_ERRORS[e.name];
   if (!labels) return `${e.name}(${e.args.join(", ")})`;
   return `${e.name}: ${e.args.map((a, i) => `${labels[i] ?? "arg"} ${usd(Number(a) / 1e8)}`).join(", ")}`;

@@ -8,7 +8,7 @@ import { cfg, vault, wagmiConfig } from "@/lib/config";
 import { api, fmtError, pct, usd, type ChatTurn, type PolicyProposal, type State, type StrategyProposal, type LogEntry } from "@/lib/api";
 import { proposalCalls } from "@/lib/policy";
 import { useVaultTx } from "@/lib/useVaultTx";
-import { Button, Panel, TxLink, TxResult } from "./ui";
+import { Button, field, Panel, TxLink, TxResult } from "./ui";
 import type { Address } from "viem";
 
 type Msg = ChatTurn & { policy?: PolicyProposal; strategy?: StrategyProposal; trades?: LogEntry[] };
@@ -50,14 +50,14 @@ export function Chat({ s, isOwner, refresh }: { s: State; isOwner: boolean; refr
 
   return (
     <Panel title="Talk to the agent">
-      <div className="max-h-[28rem] space-y-3 overflow-y-auto pr-1 text-sm">
+      <div className="max-h-[28rem] min-h-[10rem] space-y-3 overflow-y-auto pr-1 text-sm">
         {msgs.length === 0 && (
           <div className="flex flex-wrap gap-2">
-            {SUGGESTIONS.map((q) => <button key={q} onClick={() => send(q)} className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/70 hover:bg-white/10">{q}</button>)}
+            {SUGGESTIONS.map((q) => <button key={q} onClick={() => send(q)} className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/70 transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">{q}</button>)}
           </div>
         )}
         {msgs.map((m, i) => (
-          <div key={i} className={m.role === "user" ? "ml-8 rounded-lg bg-sky-500/10 p-2" : "mr-8"}>
+          <div key={i} className={m.role === "user" ? "ml-8 rounded-lg bg-sky-500/10 px-3 py-2" : "mr-4"}>
             {m.role === "user" ? <p className="whitespace-pre-wrap">{m.content}</p> : <Markdown remarkPlugins={[remarkGfm]} components={MD}>{m.content}</Markdown>}
             {m.trades?.map((t, j) => (
               <p key={j} className={`mt-1 font-mono text-xs ${t.kind === "trade" ? "text-emerald-400" : "text-rose-300"}`}>
@@ -68,10 +68,10 @@ export function Chat({ s, isOwner, refresh }: { s: State; isOwner: boolean; refr
             {m.strategy && <StrategyDiff s={s} p={m.strategy} refresh={refresh} />}
           </div>
         ))}
-        {busy && <p className="text-white/40">Thinking…</p>}
+        {busy && <p className="text-white/40" aria-live="polite">Thinking…</p>}
       </div>
       <form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); void send(input); }}>
-        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="e.g. take less risk" className="flex-1 rounded-lg border border-white/15 bg-black px-3 py-2 text-sm" />
+        <input aria-label="Message the agent" value={input} onChange={(e) => setInput(e.target.value)} placeholder="e.g. take less risk" className={`min-w-0 flex-1 ${field}`} />
         <Button variant="primary" disabled={busy || !input.trim()}>Send</Button>
       </form>
     </Panel>

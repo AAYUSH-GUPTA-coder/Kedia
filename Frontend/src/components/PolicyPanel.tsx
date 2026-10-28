@@ -6,7 +6,7 @@ import { writeContract } from "wagmi/actions";
 import { cfg, SYMS, vault, wagmiConfig, type Sym } from "@/lib/config";
 import { api, fmtError, pct, usd, type State } from "@/lib/api";
 import { useVaultTx } from "@/lib/useVaultTx";
-import { Button, Panel, TxResult } from "./ui";
+import { Button, field, Panel, TxResult } from "./ui";
 
 export function PolicyPanel({ s, isOwner, refresh }: { s: State; isOwner: boolean; refresh: () => void }) {
   const p = s.vault.policy;
@@ -38,36 +38,37 @@ export function PolicyPanel({ s, isOwner, refresh }: { s: State; isOwner: boolea
   }
 
   return (
-    <Panel title="On-chain policy" right={s.vault.paused ? <span className="rounded bg-rose-500/20 px-2 py-0.5 text-xs text-rose-300">PAUSED</span> : null}>
-      <dl className="grid grid-cols-[1fr_auto] gap-y-1.5 text-sm">
+    <Panel title="On-chain policy" right={s.vault.paused ? <span className="rounded-md bg-rose-500/20 px-2 py-0.5 text-xs font-medium text-rose-300">Paused</span> : null}>
+      <dl className="divide-y divide-white/[0.06] border-t border-white/10 text-sm">
         {rows.map(([k, v]) => (
-          <div key={k} className="contents">
-            <dt className="text-white/50">{k}</dt>
+          <div key={k} className="flex items-baseline justify-between gap-4 py-2">
+            <dt className="text-white/55">{k}</dt>
             <dd className="text-right tabular-nums">{v}</dd>
           </div>
         ))}
       </dl>
-      <p className="mt-3 text-xs text-white/40">Enforced by the vault contract. Only the owner wallet can change it; the agent's key cannot.</p>
+      <p className="mt-3 text-xs text-white/45">Enforced by the vault contract. Only the owner wallet can change it; the agent's key cannot.</p>
 
-      <div className="mt-4 rounded-lg border border-rose-500/20 bg-rose-500/5 p-3">
-        <div className="text-sm font-medium">Guardrail demo</div>
-        <p className="mt-1 text-xs text-white/50">Asks the agent to buy {usd(p.maxTradeUsd * 10)} of WHSK, 10× the limit. The transaction is sent anyway so the revert is visible on-chain.</p>
-        <div className="mt-2"><Button variant="danger" onClick={tryBreach} disabled={breach.busy}>{breach.busy ? "Sending…" : "Try to trade 10× the limit"}</Button></div>
+      <div className="mt-6">
+        <h3 className="text-sm font-semibold">Guardrail demo</h3>
+        <p className="mt-1 text-xs text-white/55">Asks the agent to buy {usd(p.maxTradeUsd * 10)} of WHSK, 10× the limit. The transaction is sent anyway so the revert is visible on-chain.</p>
+        <div className="mt-3"><Button variant="danger" onClick={tryBreach} disabled={breach.busy}>{breach.busy ? "Sending…" : "Try to trade 10× the limit"}</Button></div>
         {breach.text && <p className="mt-2 font-mono text-xs text-rose-300">{breach.text}</p>}
       </div>
 
       {isOwner && (
-        <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
-          <div className="flex flex-wrap gap-2">
+        <div className="mt-6 space-y-3">
+          <h3 className="text-sm font-semibold">Owner actions</h3>
+          <div>
             {s.vault.paused
               ? <Button variant="primary" disabled={!!tx.busy} onClick={() => tx.send("Unpause", () => writeContract(wagmiConfig, { ...vault, functionName: "unpause" }))}>Unpause trading</Button>
               : <Button variant="danger" disabled={!!tx.busy} onClick={() => tx.send("Pause", () => writeContract(wagmiConfig, { ...vault, functionName: "pause" }))}>Pause trading</Button>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <select value={sym} onChange={(e) => setSym(e.target.value as Sym)} className="rounded-lg border border-white/15 bg-black px-2 py-1.5 text-sm">
+            <select aria-label="Token" value={sym} onChange={(e) => setSym(e.target.value as Sym)} className={field}>
               {SYMS.map((x) => <option key={x}>{x}</option>)}
             </select>
-            <input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" placeholder="Amount" className="w-28 rounded-lg border border-white/15 bg-black px-2 py-1.5 text-sm" />
+            <input aria-label="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" placeholder="Amount" className={`w-28 ${field}`} />
             <Button disabled={!!tx.busy || !Number(amount)} onClick={() => tx.send(`Deposit ${amount} ${sym}`,
               () => writeContract(wagmiConfig, { address: token.address, abi: erc20Abi, functionName: "approve", args: [vault.address, raw()] }),
               () => writeContract(wagmiConfig, { ...vault, functionName: "deposit", args: [token.address, raw()] }))}>Deposit</Button>
