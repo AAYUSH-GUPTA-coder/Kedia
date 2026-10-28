@@ -1,9 +1,18 @@
-import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
+import type { Address } from 'viem';
 import type { Asset } from './config.ts';
 import type { Mode } from './strategy.ts';
 
-const STATE = new URL('../state.json', import.meta.url);
-const LOG = new URL('../trades.json', import.meta.url);
+const DATA = new URL('../data/', import.meta.url);
+
+/** Backend/data/<vault>/<name>. The address is checked so it can never escape the data folder. */
+function file(vault: Address, name: string): URL {
+  const v = vault.toLowerCase();
+  if (!/^0x[0-9a-f]{40}$/.test(v)) throw new Error(`bad vault address ${vault}`);
+  const dir = new URL(`${v}/`, DATA);
+  mkdirSync(dir, { recursive: true });
+  return new URL(name, dir);
+}
 
 function readJson<T>(file: URL, fallback: T): T {
   return existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as T) : fallback;
@@ -19,13 +28,13 @@ function writeJson(file: URL, data: unknown) {
 export type Strategy = { mode: Mode; symbols: Asset[]; tradeUsd: number; edgeBps: number; slippageBps: number; loopSeconds: number };
 export const DEFAULT_STRATEGY: Strategy = { mode: 'meanReversion', symbols: ['WHSK', 'WETH'], tradeUsd: 5, edgeBps: 60, slippageBps: 50, loopSeconds: 30 };
 
-export const loadStrategy = (): Strategy => ({ ...DEFAULT_STRATEGY, ...readJson<Partial<Strategy>>(STATE, {}) });
+export const loadStrategy = (vault: Address): Strategy => ({ ...DEFAULT_STRATEGY, ...readJson<Partial<Strategy>>(file(vault, 'state.json'), {}) });
 
-export function saveStrategy(patch: Partial<Strategy>): Strategy {
-  const s = { ...loadStrategy(), ...patch };
+export function saveStrategy(vault: Address, patch: Partial<Strategy>): Strategy {
+  const s = { ...loadStrategy(vault), ...patch };
   const bad = validateStrategy(s);
   if (bad) throw new Error(bad);
-  writeJson(STATE, s);
+  writeJson(file(vault, 'state.json'), s);
   return s;
 }
 
@@ -51,8 +60,8 @@ export type LogEntry = {
 };
 
 const MAX_LOG = 500;
-export const readLog = (): LogEntry[] => readJson<LogEntry[]>(LOG, []);
-export function appendLog(e: LogEntry) {
-  writeJson(LOG, [e, ...readLog()].slice(0, MAX_LOG));
-  console.log(`[${e.kind}] ${e.source} ${e.side} ${e.sym}: ${e.error ? `${e.error.name}(${e.error.args.join(', ')})` : e.reason}${e.txHash ? ` tx=${e.txHash}` : ''}`);
+export const readLog = (vault: Address): LogEntry[] => readJson<LogEntry[]>(file(vault, 'trades.json'), []);
+export function appendLog(vault: Address, e: LogEntry) {
+  writeJson(file(vault, 'trades.json'), [e, ...readLog(vault)].slice(0, MAX_LOG));
+  console.log(`[${vault.slice(0, 8)}] [${e.kind}] ${e.source} ${e.side} ${e.sym}: ${e.error ? `${e.error.name}(${e.error.args.join(', ')})` : e.reason}${e.txHash ? ` tx=${e.txHash}` : ''}`);
 }

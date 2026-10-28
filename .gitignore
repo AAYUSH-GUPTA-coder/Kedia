@@ -8,4 +8,5 @@ SmartContracts/cache/
 SmartContracts/broadcast/**/dry-run/
 Backend/state.json
 Backend/trades.json
+Backend/data/
 .DS_Store

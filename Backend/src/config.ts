@@ -11,12 +11,17 @@ function env(name: string): string {
 }
 
 export const cfg = addresses;
-export const VAULT = addresses.vault as Address;
+export const FACTORY = addresses.factory as Address;
+/** Vault shown to visitors who have not connected a wallet. */
+export const DEMO_VAULT = addresses.demoVault as Address;
 export const ROUTER = addresses.hskswap.swapRouter02 as Address;
 export const QUOTER = addresses.hskswap.quoterV2 as Address;
 export const RPC_URL = process.env.RPC_URL ?? addresses.rpcUrl;
 export const OPERATOR_KEY = () => env('OPERATOR_PRIVATE_KEY') as Hex;
 export const PORT = Number(process.env.PORT ?? 8787);
+/** 127.0.0.1 locally; set 0.0.0.0 when the API is hosted. */
+export const HOST = process.env.HOST ?? '127.0.0.1';
+export const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN ?? 'http://localhost:3000';
 /** When set, the agent decides and simulates but never sends transactions. */
 export const SIMULATE_ONLY = process.env.SIMULATE_ONLY === '1';
 

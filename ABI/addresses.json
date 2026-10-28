@@ -2,7 +2,8 @@
   "chainId": 177,
   "rpcUrl": "https://mainnet.hsk.xyz",
   "explorer": "https://hashkey.blockscout.com",
-  "vault": "0x0000000000000000000000000000000000000000",
+  "factory": "0x0000000000000000000000000000000000000000",
+  "demoVault": "0x0000000000000000000000000000000000000000",
   "deployBlock": 0,
   "hskswap": {
     "factory": "0x972cA9D1662F5e029cD18327D29026532E84c742",

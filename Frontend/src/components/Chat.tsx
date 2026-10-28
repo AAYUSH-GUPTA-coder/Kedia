@@ -4,7 +4,7 @@ import { useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { writeContract } from "wagmi/actions";
-import { cfg, vault, wagmiConfig } from "@/lib/config";
+import { cfg, vaultAt, wagmiConfig } from "@/lib/config";
 import { api, fmtError, pct, usd, type ChatTurn, type PolicyProposal, type State, type StrategyProposal, type LogEntry } from "@/lib/api";
 import { proposalCalls } from "@/lib/policy";
 import { useVaultTx } from "@/lib/useVaultTx";
@@ -50,8 +50,8 @@ export function Chat({ s, isOwner, refresh }: { s: State; isOwner: boolean; refr
 
   return (
     <Panel title="Talk to the agent">
-      <div className="max-h-[28rem] min-h-[10rem] space-y-3 overflow-y-auto pr-1 text-sm">
-        {msgs.length === 0 && (
+      <div className={`max-h-[28rem] space-y-3 overflow-y-auto pr-1 text-sm ${isOwner ? "min-h-[10rem]" : ""}`}>
+        {msgs.length === 0 && isOwner && (
           <div className="flex flex-wrap gap-2">
             {SUGGESTIONS.map((q) => <button key={q} onClick={() => send(q)} className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/70 transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">{q}</button>)}
           </div>
@@ -70,10 +70,12 @@ export function Chat({ s, isOwner, refresh }: { s: State; isOwner: boolean; refr
         ))}
         {busy && <p className="text-white/40" aria-live="polite">Thinking…</p>}
       </div>
-      <form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); void send(input); }}>
-        <input aria-label="Message the agent" value={input} onChange={(e) => setInput(e.target.value)} placeholder="e.g. take less risk" className={`min-w-0 flex-1 ${field}`} />
-        <Button variant="primary" disabled={busy || !input.trim()}>Send</Button>
-      </form>
+      {isOwner ? (
+        <form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); void send(input); }}>
+          <input aria-label="Message the agent" value={input} onChange={(e) => setInput(e.target.value)} placeholder="e.g. take less risk" className={`min-w-0 flex-1 ${field}`} />
+          <Button variant="primary" disabled={busy || !input.trim()}>Send</Button>
+        </form>
+      ) : <p className="mt-3 text-xs text-white/45">Connect the wallet that owns this vault to talk to its agent.</p>}
     </Panel>
   );
 }
@@ -96,7 +98,7 @@ function PolicyDiff({ s, p, isOwner, refresh }: { s: State; p: PolicyProposal; i
   function sign() {
     const tokens = s.vault.positions.map((x) => ({ sym: x.sym, address: x.address as Address, allowed: x.allowed, feed: x.feed as Address }));
     const calls = proposalCalls(p, tokens, cfg.feeds);
-    void tx.send("Apply policy", () => writeContract(wagmiConfig, { ...vault, functionName: "multicall", args: [calls] }));
+    void tx.send("Apply policy", () => writeContract(wagmiConfig, { ...vaultAt(s.vault.address as Address), functionName: "multicall", args: [calls] }));
   }
   return (
     <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">

@@ -1,8 +1,10 @@
 import { createPublicClient, createWalletClient, http, parseAbi, BaseError, ContractFunctionRevertedError } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { hashkey } from 'viem/chains';
+import type { Address } from 'viem';
 import { guardedVaultAbi } from '@kedia/abi/GuardedVault';
-import { OPERATOR_KEY, RPC_URL, VAULT } from './config.ts';
+import { vaultFactoryAbi } from '@kedia/abi/VaultFactory';
+import { FACTORY, OPERATOR_KEY, RPC_URL } from './config.ts';
 
 export const publicClient = createPublicClient({ chain: hashkey, transport: http(RPC_URL) });
 
@@ -13,7 +15,10 @@ function makeWallet() {
 /** Operator wallet. It can only call executeSwap; the vault rejects everything else it might try. */
 export const wallet = () => (_wallet ??= makeWallet());
 
-export const vault = { address: VAULT, abi: guardedVaultAbi } as const;
+export const vaultAt = (address: Address) => ({ address, abi: guardedVaultAbi }) as const;
+export const factory = { address: FACTORY, abi: vaultFactoryAbi } as const;
+/** Every vault created through the factory, checksummed. */
+export const listVaults = () => publicClient.readContract({ ...factory, functionName: 'allVaults' });
 
 export const feedAbi = parseAbi([
   'function latestRoundData() view returns (uint80, int256, uint256, uint256, uint80)',

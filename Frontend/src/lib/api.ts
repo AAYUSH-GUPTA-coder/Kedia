@@ -1,4 +1,5 @@
 import { API, type Sym } from "./config";
+import { clearSession, sessionToken } from "./session";
 
 export type Policy = { maxTradeUsd: number; dailyLossCapBps: number; maxOracleDeviationBps: number; cooldownSeconds: number; maxOracleAge: number };
 export type Position = { sym: Sym; address: string; allowed: boolean; feed: string; balance: number; price: number | null; usd: number };
@@ -19,19 +20,26 @@ export type StrategyProposal = Partial<Strategy> & { rationale: string };
 export type ChatTurn = { role: "user" | "assistant"; content: string };
 export type ChatResult = { reply: string; policy?: PolicyProposal; strategy?: StrategyProposal; trades: LogEntry[] };
 
-async function call<T>(path: string, body?: unknown): Promise<T> {
-  const r = await fetch(`${API}${path}`, body === undefined ? undefined : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+/** `auth` calls act on the signed-in wallet's own vault; the first one asks the wallet to sign in. */
+async function call<T>(path: string, body?: unknown, auth = false): Promise<T> {
+  const send = async () => fetch(`${API}${path}`, body === undefined ? undefined : {
+    method: "POST",
+    headers: { "content-type": "application/json", ...(auth ? { authorization: `Bearer ${await sessionToken()}` } : {}) },
+    body: JSON.stringify(body),
+  });
+  let r = await send();
+  if (r.status === 401 && auth) { clearSession(); r = await send(); } // backend restarted or session expired
   const j = await r.json();
   if (!r.ok) throw new Error(j.error ?? r.statusText);
   return j as T;
 }
 
 export const api = {
-  state: () => call<State>("/state"),
-  log: () => call<LogEntry[]>("/log"),
-  chat: (messages: ChatTurn[]) => call<ChatResult>("/chat", { messages }),
-  strategy: (patch: Partial<Strategy>) => call<Strategy>("/strategy", patch),
-  trade: (t: { symbol: Sym; side: "buy" | "sell"; amount: number; unit: "usd" | "asset" }) => call<LogEntry>("/trade", t),
+  state: (vault: string) => call<State>(`/state?vault=${vault}`),
+  log: (vault: string) => call<LogEntry[]>(`/log?vault=${vault}`),
+  chat: (messages: ChatTurn[]) => call<ChatResult>("/chat", { messages }, true),
+  strategy: (patch: Partial<Strategy>) => call<Strategy>("/strategy", patch, true),
+  trade: (t: { symbol: Sym; side: "buy" | "sell"; amount: number; unit: "usd" | "asset" }) => call<LogEntry>("/trade", t, true),
 };
 
 export const usd = (x: number) => `$${x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

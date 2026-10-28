@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { erc20Abi, parseUnits, type Address } from "viem";
 import { writeContract } from "wagmi/actions";
-import { cfg, SYMS, vault, wagmiConfig, type Sym } from "@/lib/config";
+import { cfg, SYMS, vaultAt, wagmiConfig, type Sym } from "@/lib/config";
 import { api, fmtError, pct, usd, type State } from "@/lib/api";
 import { parsePolicyForm, proposalCalls, toPolicyForm, type PolicyForm } from "@/lib/policy";
 import { useVaultTx } from "@/lib/useVaultTx";
@@ -11,6 +11,7 @@ import { Button, field, Panel, TxResult } from "./ui";
 
 export function PolicyPanel({ s, isOwner, refresh }: { s: State; isOwner: boolean; refresh: () => void }) {
   const p = s.vault.policy;
+  const vault = vaultAt(s.vault.address as Address);
   const tx = useVaultTx(refresh);
   const [sym, setSym] = useState<Sym>("USDT");
   const [amount, setAmount] = useState("");
@@ -103,12 +104,12 @@ export function PolicyPanel({ s, isOwner, refresh }: { s: State; isOwner: boolea
       {!form && <p className="mt-3 text-xs text-white/45">Enforced by the vault contract. {isOwner ? "Edit it here or ask in chat." : "Only the owner wallet can change it; connect it to edit. The agent's key cannot."}</p>}
       <TxResult result={policyTx.result} />
 
-      <div className="mt-6">
+      {isOwner && <div className="mt-6">
         <h3 className="text-sm font-semibold">Guardrail demo</h3>
         <p className="mt-1 text-xs text-white/55">Asks the agent to buy {usd(p.maxTradeUsd * 10)} of WHSK, 10× the limit. The transaction is sent anyway so the revert is visible on-chain.</p>
         <div className="mt-3"><Button variant="danger" onClick={tryBreach} disabled={breach.busy}>{breach.busy ? "Sending…" : "Try to trade 10× the limit"}</Button></div>
         {breach.text && <p className="mt-2 font-mono text-xs text-rose-300">{breach.text}</p>}
-      </div>
+      </div>}
 
       {isOwner && (
         <div className="mt-6 space-y-3">

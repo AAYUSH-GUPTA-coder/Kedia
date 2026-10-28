@@ -74,7 +74,8 @@ flowchart LR
         Quoter["HSKSwap<br/>QuoterV2"]
     end
     subgraph HSK Chain
-        Vault[["GuardedVault<br/>holds your funds,<br/>enforces your rules"]]
+        Factory["VaultFactory<br/>one vault per wallet"]
+        Vault[["Your GuardedVault<br/>holds your funds,<br/>enforces your rules"]]
         Swap["HSKSwap<br/>router and pools"]
         Oracle["Supra price oracle<br/>(via SupraFeedAdapter)"]
     end
@@ -86,6 +87,8 @@ flowchart LR
     Agent -- "reads prices" --> HKX
     Agent -- "reads quotes" --> Quoter
     Agent -- "executeSwap only" --> Vault
+    User -- "create vault (once)" --> Factory
+    Factory -- "deploys, owned by you" --> Vault
     User -- "wallet: rules, deposit,<br/>withdraw, pause" --> Vault
     Vault -- "swap" --> Swap
     Vault -- "checks prices" --> Oracle
@@ -98,6 +101,14 @@ There are three roles, and each can do only its own job:
 | **You (owner)** | Your wallet | Deposit, withdraw, pause, change rules, replace the agent | Nothing is off limits |
 | **The agent (operator)** | A fresh key with gas money only | Ask the vault for a swap | Withdraw, change rules, trade a blocked token, exceed a limit |
 | **The chat model** | No key at all | Read state, propose rule or strategy changes, ask the agent to try a trade you requested | Apply anything without your click or signature |
+
+### Many users, one agent
+
+Anyone can use the same dashboard. Connecting a wallet that has no vault shows **Create your vault**. One transaction, about 1 HSK in gas, asks `VaultFactory` to deploy a GuardedVault that this wallet owns. The factory records the wallet-to-vault mapping on-chain (`vaultOf(wallet)`), allows one vault per wallet, and keeps no control after creation.
+
+Every vault names the same platform agent as its operator, so users never fund or run an agent themselves. The agent loops over every vault in the factory, each with its own strategy, trade log and P&L. Even if the agent's key leaked, it could only make trades inside each owner's rules. It could never withdraw, and every owner can pause or replace the agent at any time.
+
+Chat, strategy changes and requested trades ask the wallet to sign in once with a free signature ([Sign-In with Ethereum](https://eips.ethereum.org/EIPS/eip-4361)). The backend then acts only on the vault that wallet owns, looked up on-chain. Visitors without a wallet see a read-only demo vault.
 
 ### What happens on every trade
 
@@ -180,6 +191,7 @@ APRO also publishes HSK, ETH and USDT feeds on HSK Chain. They only answer walle
 
 ## Demo
 
+1. Connect a wallet and press **Create my vault**, then deposit USDT with the Deposit button. Without a wallet, the dashboard shows the demo vault read-only.
 1. The dashboard shows positions, equity, P&L, today's stop-loss floor and the agent's live reasoning.
 2. Let the agent trade. Each trade appears in the log with an explorer link.
 3. In chat, say "halve my risk and stop trading WETH". Review the before and after table, then press **Sign & apply**. WETH shows as blocked.
@@ -188,8 +200,8 @@ APRO also publishes HSK, ETH and USDT feeds on HSK Chain. They only answer walle
 ## Project layout
 
 ```
-SmartContracts/  Foundry: GuardedVault, SupraFeedAdapter, mainnet-fork tests, deploy and fork scripts
-ABI/             Shared config: addresses.json (chain 177) and the generated vault ABI (JSON + typed TS)
+SmartContracts/  Foundry: GuardedVault, VaultFactory, SupraFeedAdapter, mainnet-fork tests, deploy and fork scripts
+ABI/             Shared config: addresses.json (chain 177) and the generated vault and factory ABIs (JSON + typed TS)
 Backend/         Node 24 + viem: market data, strategies, agent loop, HTTP API
 AI/              Chat: Claude Sonnet 5.5 via Hopscotch Labs, with tools get_state, propose_policy,
                  propose_strategy, attempt_trade
@@ -203,7 +215,7 @@ Requirements: Foundry 1.8.6 (`foundryup --install 1.8.6`), Node 24, pnpm.
 ```bash
 git submodule update --init --recursive
 pnpm install
-pnpm test        # 21 fork tests + backend, AI and frontend unit tests
+pnpm test        # 28 fork tests + backend, AI and frontend unit tests
 ```
 
 ### Test locally on a mainnet fork (fake money)
@@ -214,7 +226,7 @@ Terminal 1, from the repo root, starts a local copy of HSK mainnet:
 anvil --fork-url https://mainnet.hsk.xyz --port 8547
 ```
 
-Terminal 2, from the repo root, deploys and funds a test vault (30 USDT + 300 WHSK):
+Terminal 2, from the repo root, deploys the factory and funds the demo vault (30 USDT + 300 WHSK):
 
 ```bash
 SmartContracts/fork-setup.sh
@@ -232,7 +244,7 @@ Terminal 3, from the repo root, starts the dashboard at http://localhost:3000:
 NEXT_PUBLIC_RPC_URL=http://127.0.0.1:8547 pnpm frontend
 ```
 
-The fork owner is anvil account 0, so signing owner actions needs that test key imported in your wallet. Everything else works without a wallet. When done, stop all three and restore the mainnet config before deploying for real:
+The demo vault belongs to anvil account 0. To try the app as a new user, connect any other wallet account on the fork and press **Create my vault**. Fund it with fake USDT using the `anvil_setStorageAt` line in `SmartContracts/fork-setup.sh`. When done, stop all three and restore the mainnet config before deploying for real:
 
 ```bash
 git checkout ABI/addresses.json
@@ -251,7 +263,7 @@ cd SmartContracts
 OPERATOR=<operator address> forge script script/Deploy.s.sol --rpc-url hsk --account owner --broadcast --verify
 ```
 
-The script deploys the vault and three price adapters, allows USDT, WHSK and WETH, sets the default rules from the table above, and writes the addresses into `ABI/addresses.json`.
+The script deploys three price adapters and `VaultFactory`, with the operator as the agent for new vaults and the default rules from the table above. It then creates the owner wallet's own vault, which visitors see as the demo vault, and writes the addresses into `ABI/addresses.json`.
 
 ### Run
 
@@ -262,7 +274,9 @@ pnpm backend                                  # API on :8787 plus the trading lo
 pnpm frontend                                 # dashboard on :3000
 ```
 
-Connect the owner wallet in the dashboard and deposit funds with its Deposit button, not a plain transfer, so P&L counts the deposit. Run `SIMULATE_ONLY=1 pnpm backend` to watch decisions without sending transactions.
+Connect your wallet in the dashboard and deposit funds with its Deposit button, not a plain transfer, so P&L counts the deposit. Other users connect their own wallets and create their own vaults.
+
+To open it to other users, host the frontend (Vercel works) with `NEXT_PUBLIC_API_URL` set to the backend's URL. The backend runs a loop that never stops, so it needs an always-on server with a persistent disk for `Backend/data/`. Set `HOST=0.0.0.0` and `FRONTEND_ORIGIN` to the dashboard's URL. Run `SIMULATE_ONLY=1 pnpm backend` to watch decisions without sending transactions.
 
 ### Chat model
 
@@ -300,6 +314,7 @@ Hopscotch refuses `reasoning_effort` for this model, so requests run at the mode
 
 ## Known limits
 
-- Single owner, single vault, no upgradeability. The backend has no auth and listens on 127.0.0.1 only.
+- One vault per wallet, no upgradeability. The platform's agent pays the gas for every vault and charges nothing yet.
+- Sign-in sessions live in the backend's memory, so a backend restart asks each user to sign in again.
 - The stop-loss is marked at oracle prices, so a lagging feed can hold equity under the floor and block trading until the price recovers or the next UTC day starts. That is the guardrail working. The owner can also reset it by depositing, withdrawing or raising the cap.
 - Supra's on-chain prices are refreshed by whoever pushes Supra proofs. The vault refuses to trade if a price is older than the freshness limit.
