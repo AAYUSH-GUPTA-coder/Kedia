@@ -1,8 +1,13 @@
 import { existsSync } from 'node:fs';
-import addresses from '@kedia/abi/addresses.json' with { type: 'json' };
 import type { Address, Hex } from 'viem';
+import mainnet from '@kedia/abi/addresses.json' with { type: 'json' };
 
 if (existsSync(new URL('../.env', import.meta.url))) process.loadEnvFile(new URL('../.env', import.meta.url));
+
+/** KEDIA_NETWORK=fork reads the local fork deployment that SmartContracts/fork-setup.sh writes; anything else is mainnet. */
+export const FORK = process.env.KEDIA_NETWORK === 'fork';
+const forkFile = '@kedia/abi/addresses.fork.json'; // a variable, so typechecking works before the file exists
+const addresses: typeof mainnet = FORK ? (await import(forkFile, { with: { type: 'json' } })).default : mainnet;
 
 function env(name: string): string {
   const v = process.env[name];
@@ -16,7 +21,8 @@ export const FACTORY = addresses.factory as Address;
 export const DEMO_VAULT = addresses.demoVault as Address;
 export const ROUTER = addresses.hskswap.swapRouter02 as Address;
 export const QUOTER = addresses.hskswap.quoterV2 as Address;
-export const RPC_URL = process.env.RPC_URL ?? addresses.rpcUrl;
+// On the fork, always the fork's own RPC, so a mainnet RPC_URL in .env can never mix the two.
+export const RPC_URL = FORK ? addresses.rpcUrl : (process.env.RPC_URL ?? addresses.rpcUrl);
 /** Secret every agent wallet is derived from, one per vault creator. Whoever holds it controls every agent wallet's gas, never vault funds. */
 export const AGENT_MASTER_KEY = (): Hex => {
   const k = env('AGENT_MASTER_KEY');

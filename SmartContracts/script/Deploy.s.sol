@@ -14,13 +14,13 @@ import {ISwapRouter02} from "../src/interfaces/ISwapRouter02.sol";
  * @notice Deploys the Supra adapters and the VaultFactory, then creates the broadcaster's own vault as the demo vault
  *         and funds its agent wallet with AGENT_FUNDING wei (default 5 HSK).
  *         Usage: AGENT_MASTER_KEY=0x... forge script script/Deploy.s.sol --rpc-url hsk --account owner --broadcast --verify
- *         Writes the deployed addresses into ../ABI/addresses.json.
+ *         Writes the deployed addresses into ../ABI/addresses.json, or the file named by ADDRESSES (fork-setup.sh uses
+ *         ../ABI/addresses.fork.json so fork deploys never touch the mainnet config).
  */
 contract Deploy is Script {
-    string constant CONFIG = "../ABI/addresses.json";
-
     function run() external {
-        string memory cfg = vm.readFile(CONFIG);
+        string memory path = vm.envOr("ADDRESSES", string("../ABI/addresses.json"));
+        string memory cfg = vm.readFile(path);
         // Same derivation as the backend's agentKey(): one agent wallet per vault creator.
         address agent = vm.addr(uint256(keccak256(abi.encodePacked(vm.envBytes32("AGENT_MASTER_KEY"), msg.sender))));
         uint256 funding = vm.envOr("AGENT_FUNDING", uint256(5 ether));
@@ -50,11 +50,11 @@ contract Deploy is Script {
         address demo = factory.createVault{value: funding}(agent);
         vm.stopBroadcast();
 
-        vm.writeJson(_q(address(factory)), CONFIG, ".factory");
-        vm.writeJson(_q(demo), CONFIG, ".demoVault");
-        vm.writeJson(vm.toString(block.number), CONFIG, ".deployBlock");
+        vm.writeJson(_q(address(factory)), path, ".factory");
+        vm.writeJson(_q(demo), path, ".demoVault");
+        vm.writeJson(vm.toString(block.number), path, ".deployBlock");
         for (uint256 i; i < 3; ++i) {
-            vm.writeJson(_q(feeds[i]), CONFIG, string.concat(".feeds.", syms[i]));
+            vm.writeJson(_q(feeds[i]), path, string.concat(".feeds.", syms[i]));
         }
         console.log("VaultFactory", address(factory));
         console.log("Demo vault", demo);

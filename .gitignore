@@ -9,5 +9,6 @@ SmartContracts/broadcast/
 Backend/state.json
 Backend/trades.json
 Backend/data/
+ABI/addresses.fork.json
 .DS_Store
 Working.md

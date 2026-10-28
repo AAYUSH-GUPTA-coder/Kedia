@@ -272,7 +272,7 @@ APRO also publishes HSK, ETH and USDT feeds on HSK Chain. They only answer walle
 
 ```
 SmartContracts/  Foundry: GuardedVault, VaultFactory, SupraFeedAdapter, mainnet-fork tests, deploy and fork scripts
-ABI/             Shared config: addresses.json (chain 177) and the generated vault and factory ABIs (JSON + typed TS)
+ABI/             Shared config: addresses.json (mainnet, chain 177), addresses.fork.json (local fork, gitignored) and the generated vault and factory ABIs
 Backend/         Node 24 + viem: market data, strategies, agent loop, HTTP API
 AI/              Chat: Claude Sonnet 5.5 via Hopscotch Labs, with tools get_state, propose_policy,
                  propose_strategy, attempt_trade
@@ -289,37 +289,35 @@ pnpm install
 pnpm test        # 31 fork tests + backend, AI and frontend unit tests
 ```
 
-### Test locally on a mainnet fork (fake money)
+### Demo on a local mainnet fork (fake money)
 
-Terminal 1, from the repo root, starts a local copy of HSK mainnet:
+The fork is a local copy of HSK mainnet with real HSKSwap pools and Supra prices, so the demo behaves like mainnet without spending real funds. Its addresses go to `ABI/addresses.fork.json` (gitignored); `ABI/addresses.json` keeps only the mainnet deployment.
 
-```bash
-anvil --fork-url https://mainnet.hsk.xyz --port 8547
-```
-
-Terminal 2, from the repo root, deploys the factory and funds the demo vault (30 USDT + 300 WHSK):
+From the repo root, one terminal each:
 
 ```bash
-SmartContracts/fork-setup.sh
+pnpm fork:chain      # terminal 1: local copy of HSK mainnet on :8547
 ```
-
-Still in terminal 2, start the backend against the fork with the fork-only agent master key that `fork-setup.sh` uses. These values override `Backend/.env` for this run only; chat still uses your Hopscotch key from `.env`.
 
 ```bash
-RPC_URL=http://127.0.0.1:8547 AGENT_MASTER_KEY=0x15e88afcecd0892d8d4e40d498ec9d71f154643b0de7fc32d6fb573b7fd9340e pnpm backend
+pnpm fork:setup      # terminal 2: deploys the factory, funds the demo vault (30 USDT + 300 WHSK) and its agent (5 HSK)
+pnpm backend:fork    # then: API on :8787 plus the trading loop, reading the fork file
 ```
-
-Terminal 3, from the repo root, starts the dashboard at http://localhost:3000:
 
 ```bash
-NEXT_PUBLIC_RPC_URL=http://127.0.0.1:8547 pnpm frontend
+pnpm frontend:fork   # terminal 3: dashboard at http://localhost:3000, reading the fork file
 ```
 
-The demo vault belongs to anvil account 0. To try the app as a new user, connect any other wallet account on the fork and press **Create my vault**. Fund it with fake USDT using the `anvil_setStorageAt` line in `SmartContracts/fork-setup.sh`. When done, stop all three and restore the mainnet config before deploying for real:
+`backend:fork` uses a fork-only agent master key and the fork's own RPC, so your `Backend/.env` values for mainnet are never mixed in; chat still uses your Hopscotch key from `.env`.
+
+In MetaMask, add `http://127.0.0.1:8547` as an RPC URL of the HSK Chain network and select it, so your transactions go to the fork. To try the app as a new user, give your wallet fake HSK and USDT on the fork, then press **Create my vault**:
 
 ```bash
-git checkout ABI/addresses.json
+cast rpc anvil_setBalance <your address> $(cast to-hex $(cast to-wei 100)) -r http://127.0.0.1:8547
+cast rpc anvil_setStorageAt 0xF1B50eD67A9e2CC94Ad3c477779E2d4cBfFf9029 $(cast index address <your address> 0) $(cast to-uint256 100000000) -r http://127.0.0.1:8547
 ```
+
+anvil keeps nothing after it stops, so run `pnpm fork:setup` again after restarting it, and delete `Backend/data/` to clear old fork trades.
 
 ### Deploy to mainnet
 
@@ -337,7 +335,7 @@ AGENT_MASTER_KEY=<key> forge script script/Deploy.s.sol --rpc-url hsk --account 
 
 The script deploys three price adapters and `VaultFactory` with the default rules from the table above. It then creates the owner wallet's own vault, which visitors see as the demo vault, sends its agent wallet 5 HSK (set `AGENT_FUNDING` in wei to change it), and writes the addresses into `ABI/addresses.json`.
 
-### Run
+### Run against mainnet
 
 ```bash
 cp Backend/.env.example Backend/.env          # set AGENT_MASTER_KEY and HOPSCOTCH_API_KEY

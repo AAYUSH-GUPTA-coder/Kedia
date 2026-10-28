@@ -4,7 +4,7 @@
     {
       "name": "frontend-fork",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "frontend", "exec", "env", "NEXT_PUBLIC_API_URL=http://127.0.0.1:8787", "NEXT_PUBLIC_RPC_URL=http://127.0.0.1:8547", "next", "dev", "--port", "3000"],
+      "runtimeArgs": ["--filter", "frontend", "exec", "env", "NEXT_PUBLIC_API_URL=http://127.0.0.1:8787", "NEXT_PUBLIC_KEDIA_NETWORK=fork", "next", "dev", "--port", "3000"],
       "port": 3000
     }
   ]

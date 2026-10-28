@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Deploys the VaultFactory and funds the owner's demo vault on a local anvil fork of HSK mainnet, for testing with fake money.
 # Start the fork first, in its own terminal:  anvil --fork-url https://mainnet.hsk.xyz --port 8547
-# This overwrites ABI/addresses.json with fork addresses; restore it with `git checkout ABI/addresses.json`.
+# Fork addresses go to ABI/addresses.fork.json (gitignored), never to the mainnet ABI/addresses.json.
+# Then run `pnpm backend:fork` and `pnpm frontend:fork`, which read the fork file.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -19,8 +20,12 @@ cast chain-id -r $R >/dev/null 2>&1 || { echo "No fork on $R. Start: anvil --for
 # Mine a block every 2s so block time tracks the wall clock, which the stop-loss day boundary relies on.
 cast rpc evm_setIntervalMining 2 -r $R >/dev/null
 
-AGENT_MASTER_KEY=$AGENT_MASTER_KEY forge script script/Deploy.s.sol --rpc-url $R --broadcast --private-key $OWNER_PK >/dev/null
-VAULT=$(python3 -c "import json;print(json.load(open('../ABI/addresses.json'))['demoVault'])")
+# Start the fork config from the mainnet one (tokens, pools, Supra), pointed at the local RPC.
+CFG=../ABI/addresses.fork.json
+python3 -c "import json;a=json.load(open('../ABI/addresses.json'));a['rpcUrl']='$R';json.dump(a,open('$CFG','w'),indent=2)"
+
+ADDRESSES=$CFG AGENT_MASTER_KEY=$AGENT_MASTER_KEY forge script script/Deploy.s.sol --rpc-url $R --broadcast --private-key $OWNER_PK >/dev/null
+VAULT=$(python3 -c "import json;print(json.load(open('$CFG'))['demoVault'])")
 
 # Give the owner 100 fake USDT (OZ ERC20 balances live at slot 0) and wrap 300 HSK into WHSK.
 cast rpc anvil_setStorageAt $USDT "$(cast index address $OWNER 0)" "$(cast to-uint256 100000000)" -r $R >/dev/null
@@ -31,4 +36,4 @@ for t in "$USDT 30000000" "$WHSK 300000000000000000000"; do
   cast send $VAULT 'deposit(address,uint256)' $1 $2 --private-key $OWNER_PK -r $R >/dev/null
 done
 
-echo "Factory $(python3 -c "import json;print(json.load(open('../ABI/addresses.json'))['factory'])"). Demo vault $VAULT on the fork holds 30 USDT + 300 WHSK. Equity (8 decimals): $(cast call $VAULT 'equity()(uint256)' -r $R)"
+echo "Factory $(python3 -c "import json;print(json.load(open('$CFG'))['factory'])"). Demo vault $VAULT on the fork holds 30 USDT + 300 WHSK. Equity (8 decimals): $(cast call $VAULT 'equity()(uint256)' -r $R)"
