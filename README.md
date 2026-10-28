@@ -2,21 +2,40 @@
 
 **An AI trading agent you can hand your money to, because it cannot break your rules.**
 
-Kedia runs an AI agent that trades for you around the clock on **HSKSwap**, the DEX on **HSK Chain**. Your funds stay in a vault contract that you own. The agent can ask the vault to make a trade, but the vault checks every trade against your limits and refuses anything that breaks them. You change those limits by chatting in plain English, and nothing changes until you sign it with your wallet.
+## Why we built it
+
+AI agents can trade around the clock and react in seconds, but letting one trade means giving it a wallet key. A key can do anything, so one bug, hallucination or manipulated price can drain the account. Today's agents protect you with instructions in a prompt, and a prompt is only a request. We built Kedia so you can get an AI agent's speed without handing over control: your rules live in a smart contract, and code enforces them.
+
+## When the agent trades
+
+The agent looks for moments when **HSKSwap**, the DEX on **HSK Chain**, prices a token differently from the **HashKey Exchange** order book:
+
+- **It buys** when HSKSwap sells a token more than 0.6% below the exchange price, after fees and price impact.
+- **It sells** when HSKSwap pays more than 0.6% above the exchange price.
+- **Otherwise it waits.** It checks every 30 seconds and trades at most once every 5 minutes, never larger than your max trade size.
+
+Every trade goes through your vault, which checks it against your limits and refuses anything that breaks them.
+
+## What you get
+
+- **Earnings from price gaps** without watching the market. Each good trade earns roughly the size of the gap.
+- **Your money stays yours.** Funds sit in a vault you own. The agent's key can ask for a swap but cannot withdraw.
+- **Risk limits enforced by code.** Trade size, a daily stop-loss, allowed tokens, trade frequency and a price sanity check are checked on-chain for every trade.
+- **Control in plain English.** Say "halve my risk" in chat, review the change, and sign it. Nothing changes without your signature.
 
 Built for the HSK Chain Horizon Hackathon (Mumbai), Track 1: AI Agent Trading.
 
 ## The problem
 
-An AI agent can watch markets 24/7 and act in seconds, which no person can. To let it trade, though, you usually give it a wallet key, and a key can do anything. The agent can be:
+Concretely, an AI agent holding your wallet key can be:
 
 - **Wrong.** A bug or a bad model output can place a trade ten times too big.
 - **Tricked.** A prompt injection or a manipulated, thin liquidity pool can push it into a terrible fill.
 - **Stubborn.** It may keep trading while it loses, because "stop at 5% loss" in a prompt is only a suggestion.
 
-Most AI trading bots protect you with instructions in a prompt. A prompt is a request. A smart contract that reverts the transaction is a guarantee.
+Kedia answers each of these with a check the vault runs on every trade. A smart contract that reverts the transaction is a guarantee.
 
-## What it gives you
+## What you get, and how
 
 | You get | How |
 |---|---|
@@ -27,34 +46,82 @@ Most AI trading bots protect you with instructions in a prompt. A prompt is a re
 | **Full visibility** | The dashboard shows positions, P&L, today's stop-loss floor, the agent's reasoning, and every trade and rejection with an explorer link. |
 | **Exit any time** | You can pause trading or withdraw instantly. Withdrawals never depend on the price oracle. |
 
-## Example: one day with a $40 vault
+## Example: one day with a $5,000 vault
 
-You deposit 30 USDT and 115 WHSK (about $10), so your vault is worth **$40**. You keep the default rules: $10 max trade, 5% daily loss cap, 5% price band. The agent's first trade of the day records $40 as the starting point, so today's stop-loss floor is **$38**.
+You deposit **3,500 USDT and $1,500 of WHSK**, so your vault is worth **$5,000**. You set the max trade to **$500**; the default of $10 is for testing. HSKSwap's WHSK pool fills a $500 trade within about 0.2% of the exchange price, so that is a size the pool handles well. The daily loss cap stays at 5%, so when the agent's first trade of the day records $5,000 as the starting point, today's stop-loss floor is **$4,750**.
 
-| Time | What happens | What the vault does | A bot holding your key instead |
+The table compares Kedia with a regular trading bot that holds your wallet key. The bot runs the same strategy, so both make the same good trades.
+
+| Time | What happens | Kedia | Bot holding your key |
 |---|---|---|---|
-| 10:15 | HSKSwap sells WHSK 0.8% below the HashKey Exchange price. The agent buys $5 of WHSK. | Every check passes. Trade kept. | Same trade. |
-| 11:40 | The agent sells $5 of WHSK. A bot front-runs it and pushes the pool price down 12% in the same block. | The fill is worth $4.40, more than 5% below the oracle value. `ExecutionPriceDeviates`: the swap is undone and you lose only gas, about 1 cent. | Sells at a 12% loss. |
-| 13:00 | A bug in a strategy update sizes the next order at $100 instead of $5. | `TradeTooLarge`. Nothing moves. | Puts $100 of your funds into one trade. |
-| 14:30 | HSK falls 15% across the market. Your $15 of WHSK drops to about $12.75, so the vault is worth $37.75, below the $38 floor. The agent sees a cheap pool and tries to buy the dip. | `DailyLossCapBreached`. While equity is under the floor, every trade is refused. | Keeps buying the dip with your remaining USDT, so the loss grows. |
-| 18:00 | You type "halve my risk and stop trading WETH" and press **Sign & apply**. | One transaction: max trade $5, loss cap 2.5%, WETH blocked. The agent cannot undo it. | You edit a config file or prompt and hope the bot follows it. |
-| 00:00 UTC | A new day starts. | The next trade records a new starting point, and the 2.5% cap applies from there. | — |
+| 10:15 | HSKSwap sells WHSK 0.8% below the exchange price. The agent buys $500 of it. | Kept. **+$4.00**. Vault: $5,004 | Same. $5,004 |
+| 11:40 | The agent sells $500 of WHSK. A front-running bot pushes the pool down 12% in the same block. | The fill is worth $440, more than 5% under the oracle value. `ExecutionPriceDeviates`: the swap is undone. Vault: $5,004 | Sells for $440. **−$60**. $4,944 |
+| 12:20 | HSKSwap pays 0.9% above the exchange price. The agent sells $500 of WHSK. | Kept. **+$4.50**. Vault: $5,008.50 | Same. $4,948.50 |
+| 13:00 | A bug in a strategy update sizes the next order at $3,000. | `TradeTooLarge`. Nothing moves. | Buys $3,000 of WHSK and pays about 1% in price impact. **−$30**. $4,918.50 |
+| 14:30 | HSK falls 20% across the market. The vault is now worth $4,707.70, under the $4,750 floor. The agent tries to buy the dip. | `DailyLossCapBreached`. Every trade is refused while value is under the floor. | Spends its last $944.50 of USDT on the dip. $4,123.70 |
+| 16:00 | HSK falls another 5%. | Only the WHSK already held moves. $4,647.54 | Holds only WHSK now. $3,917.52 |
+| 18:00 | You type "halve my risk and stop trading WETH" and press **Sign & apply**. | One transaction: max trade $250, loss cap 2.5%, WETH blocked. The agent cannot undo it. | You edit a config file or prompt and hope the bot follows it. |
+| 00:00 UTC | A new day starts. | The next trade records a new starting point. Tomorrow's floor is 2.5% below it, about $4,531. | — |
 
 ```mermaid
-%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#2563eb, #dc2626"}}}}%%
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#2563eb, #f59e0b, #dc2626"}}}}%%
 xychart-beta
-    title "Blue = vault value, Red = today's stop-loss floor (USD)"
-    x-axis ["10:15", "11:40", "13:00", "14:30", "16:00", "18:00"]
-    y-axis 34 --> 42
-    line [40.0, 40.0, 40.0, 37.75, 37.6, 37.7]
-    line [38, 38, 38, 38, 38, 38]
+    title "Blue = Kedia, Orange = unguarded bot, Red = stop-loss floor"
+    x-axis ["10:15", "11:40", "12:20", "13:00", "14:30", "16:00"]
+    y-axis 3800 --> 5200
+    line [5004, 5004, 5008.5, 5008.5, 4707.7, 4647.54]
+    line [5004, 4944, 4948.5, 4918.5, 4123.7, 3917.52]
+    line [4750, 4750, 4750, 4750, 4750, 4750]
 ```
 
-The blue line is the vault's value, and the red line is today's floor. Once value crosses below the floor, the agent cannot trade again until value recovers above it or the next day begins.
+Values are in USD. The orange line drops at each event the vault blocked for Kedia.
+
+**End of the day:**
+
+| Strategy | Vault value at 18:00 | Change |
+|---|---|---|
+| Kedia | **$4,647.54** | −7.05% |
+| Just holding, no trading | $4,640.00 | −7.20% |
+| Bot holding your key | $3,917.52 | −21.65% |
+
+On this bad day for HSK, Kedia **earned $8.50** from two good trades and **avoided $730 of losses** that the unguarded bot took on: a front-run fill, a buggy oversized order, and buying the dip with all its cash. The market drop itself hit everyone who held WHSK.
 
 The stop-loss stops the *agent*. It does not sell what you already hold, so your WHSK still moves with the market. To get out completely, press **Pause** or withdraw; withdrawals never depend on the oracle.
 
-Each row is behaviour the fork tests check against real HSKSwap pools: `test_revert_executionPriceDeviates_manipulatedPool`, `test_revert_tradeTooLarge`, `test_revert_dailyLossCap_thenResetsNextDay` and `test_ownerBatchesPolicyChangeWithMulticall`.
+### How much can it earn?
+
+Earnings come from HSKSwap's price drifting away from the HashKey Exchange price. The agent trades only when the gap is over 0.6% after fees, so each good $500 trade earns roughly the gap: about **$4** at a typical 0.8% gap. Gaps of 0.6% to 1.2% showed up in testing.
+
+| Day | Good trades | Earnings | On a $5,000 vault |
+|---|---|---|---|
+| Quiet | 1 | about $4 | 0.08% |
+| Typical | 3 | about $12 | 0.24% |
+| Busy | 6 | about $24 | 0.48% |
+
+If typical days repeated every day, that would add up to about $360 a month. Treat that as an upper estimate, not a promise. Gaps shrink as other traders compete for them, and price moves in the tokens you hold usually matter more than trading earnings, as the example day shows. What the vault does guarantee is that no trade breaks your rules.
+
+### Why these numbers grow with HSK Chain
+
+Today's figures are small because today's pools are small. The limit is how much a pool can absorb, not the product.
+
+On HSKSwap, a trade's price impact grows with its size divided by the pool's depth. Today the WHSK pool takes a $500 trade for about 0.2% of price impact. In a pool twice as deep, a $1,000 trade has the same impact, so each price gap is worth about twice as much. More trading activity on the chain also creates price gaps more often, which means more chances to trade.
+
+Keeping the same 0.2% impact and three good trades a day at a 0.8% gap:
+
+| WHSK pool depth | Trade size | Typical day | Typical month | Vault size it suits |
+|---|---|---|---|---|
+| Today | $500 | about $12 | about $360 | $5,000 |
+| 5× today | $2,500 | about $60 | about $1,800 | $25,000 |
+| 20× today | $10,000 | about $240 | about $7,200 | $100,000 |
+
+Two things to read correctly in this table:
+
+- **The percentage stays about the same,** roughly 0.24% a day. What grows with liquidity is the amount each trade can carry, so bigger vaults can earn the same rate and total earnings grow with the chain.
+- **The growth is not guaranteed to be exactly proportional.** Deeper, busier markets also attract more traders who close price gaps, so gaps can get smaller or shorter-lived as the chain grows.
+
+As HSK Chain and HSKSwap gain liquidity, Kedia can safely handle larger vaults. Its guardrails scale with you: you raise the max trade size in the same chat-and-sign flow, and every other limit still applies.
+
+Each guardrail in the example is checked by a fork test against real HSKSwap pools: `test_revert_executionPriceDeviates_manipulatedPool`, `test_revert_tradeTooLarge`, `test_revert_dailyLossCap_thenResetsNextDay` and `test_ownerBatchesPolicyChangeWithMulticall`.
 
 ## How it works
 
