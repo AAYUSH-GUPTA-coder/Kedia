@@ -51,7 +51,9 @@ contract GuardedVaultTest is Test {
         deal(WHSK, address(vault), 100e18);
     }
 
-    // ------------------------------------------------------------ helpers
+    /*//////////////////////////////////////////////////////////////
+                                 HELPERS
+    //////////////////////////////////////////////////////////////*/
 
     function _swap(address tIn, address tOut, uint256 amountIn) internal returns (uint256) {
         vm.prank(operator);
@@ -81,7 +83,9 @@ contract GuardedVaultTest is Test {
         }
     }
 
-    // ------------------------------------------------------------ oracles
+    /*//////////////////////////////////////////////////////////////
+                                 ORACLES
+    //////////////////////////////////////////////////////////////*/
 
     /// @dev Documents why the adapter exists: APRO answers EOAs but not unlisted contracts.
     function test_aproRejectsContractsButAgreesWithSupra() public {
@@ -97,7 +101,9 @@ contract GuardedVaultTest is Test {
         assertEq(AggregatorV3Interface(HSK_USD).decimals(), 8);
     }
 
-    // ------------------------------------------------------------ happy paths
+    /*//////////////////////////////////////////////////////////////
+                               HAPPY PATHS
+    //////////////////////////////////////////////////////////////*/
 
     function test_buyWhskWithUsdt() public {
         uint256 whskBefore = IERC20(WHSK).balanceOf(address(vault));
@@ -116,7 +122,9 @@ contract GuardedVaultTest is Test {
         assertGt(_swap(USDT, WETH, 5e6), 0);
     }
 
-    // ------------------------------------------------------------ access control
+    /*//////////////////////////////////////////////////////////////
+                              ACCESS CONTROL
+    //////////////////////////////////////////////////////////////*/
 
     function test_revert_notOperator() public {
         vm.expectRevert(GuardedVault.NotOperator.selector);
@@ -144,7 +152,9 @@ contract GuardedVaultTest is Test {
         _swap(USDT, WHSK, 1e6);
     }
 
-    // ------------------------------------------------------------ token list
+    /*//////////////////////////////////////////////////////////////
+                                TOKEN LIST
+    //////////////////////////////////////////////////////////////*/
 
     function test_revert_tokenNotAllowed() public {
         vm.expectRevert(abi.encodeWithSelector(GuardedVault.TokenNotAllowed.selector, WBTC));
@@ -169,7 +179,9 @@ contract GuardedVaultTest is Test {
         _swap(USDT, WETH, 1e6);
     }
 
-    // ------------------------------------------------------------ limits
+    /*//////////////////////////////////////////////////////////////
+                                  LIMITS
+    //////////////////////////////////////////////////////////////*/
 
     function test_revert_tradeTooLarge() public {
         (, int256 usdtPrice,,,) = AggregatorV3Interface(USDT_USD).latestRoundData();

@@ -7,9 +7,13 @@ import {SupraFeedAdapter} from "../src/SupraFeedAdapter.sol";
 import {ISupraSValueFeed} from "../src/interfaces/ISupraSValueFeed.sol";
 import {ISwapRouter02} from "../src/interfaces/ISwapRouter02.sol";
 
-/// @notice Deploys the Supra adapters and the vault, owned by the broadcasting wallet.
-/// Usage: OPERATOR=0x... forge script script/Deploy.s.sol --rpc-url hsk --account owner --broadcast --verify
-/// Writes the deployed addresses into ../ABI/addresses.json.
+/**
+ * @title Deploy
+ * @author Aayush Gupta
+ * @notice Deploys the Supra adapters and the vault, owned by the broadcasting wallet.
+ *         Usage: OPERATOR=0x... forge script script/Deploy.s.sol --rpc-url hsk --account owner --broadcast --verify
+ *         Writes the deployed addresses into ../ABI/addresses.json.
+ */
 contract Deploy is Script {
     string constant CONFIG = "../ABI/addresses.json";
 
