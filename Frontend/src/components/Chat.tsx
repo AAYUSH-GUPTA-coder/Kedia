@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { writeContract } from "wagmi/actions";
 import { cfg, vault, wagmiConfig } from "@/lib/config";
 import { api, fmtError, pct, usd, type ChatTurn, type PolicyProposal, type State, type StrategyProposal, type LogEntry } from "@/lib/api";
@@ -10,6 +12,18 @@ import { Button, Panel, TxLink, TxResult } from "./ui";
 import type { Address } from "viem";
 
 type Msg = ChatTurn & { policy?: PolicyProposal; strategy?: StrategyProposal; trades?: LogEntry[] };
+
+const MD = {
+  p: (p: React.ComponentProps<"p">) => <p className="my-1.5" {...p} />,
+  strong: (p: React.ComponentProps<"strong">) => <strong className="font-semibold text-white" {...p} />,
+  ul: (p: React.ComponentProps<"ul">) => <ul className="my-1.5 list-disc pl-5" {...p} />,
+  ol: (p: React.ComponentProps<"ol">) => <ol className="my-1.5 list-decimal pl-5" {...p} />,
+  table: (p: React.ComponentProps<"table">) => <table className="my-2 w-full text-xs" {...p} />,
+  thead: (p: React.ComponentProps<"thead">) => <thead className="text-white/40" {...p} />,
+  th: (p: React.ComponentProps<"th">) => <th className="py-0.5 pr-3 text-left font-normal last:pr-0 [&:not(:first-child)]:text-right" {...p} />,
+  td: (p: React.ComponentProps<"td">) => <td className="py-0.5 pr-3 tabular-nums last:pr-0 [&:not(:first-child)]:text-right" {...p} />,
+  tr: (p: React.ComponentProps<"tr">) => <tr className="border-t border-white/10 first:border-0" {...p} />,
+};
 
 const SUGGESTIONS = ["What are my positions and P&L?", "Halve my risk and stop trading WETH", "Buy $100 of WHSK right now", "Switch to momentum with $3 trades"];
 
@@ -44,7 +58,7 @@ export function Chat({ s, isOwner, refresh }: { s: State; isOwner: boolean; refr
         )}
         {msgs.map((m, i) => (
           <div key={i} className={m.role === "user" ? "ml-8 rounded-lg bg-sky-500/10 p-2" : "mr-8"}>
-            <p className="whitespace-pre-wrap">{m.content}</p>
+            {m.role === "user" ? <p className="whitespace-pre-wrap">{m.content}</p> : <Markdown remarkPlugins={[remarkGfm]} components={MD}>{m.content}</Markdown>}
             {m.trades?.map((t, j) => (
               <p key={j} className={`mt-1 font-mono text-xs ${t.kind === "trade" ? "text-emerald-400" : "text-rose-300"}`}>
                 {t.kind === "trade" ? `executed ${t.side} ${t.sym}` : `rejected: ${fmtError(t.error)}`} <TxLink hash={t.txHash} />
