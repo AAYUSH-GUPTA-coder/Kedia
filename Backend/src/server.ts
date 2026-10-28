@@ -2,10 +2,10 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { formatEther, getAddress, isAddress, isAddressEqual, zeroAddress, type Address } from 'viem';
 import { chat, type ChatTurn, type StrategyProposal } from '@kedia/ai';
 import { ASSETS, cfg, DEMO_VAULT, FRONTEND_ORIGIN, type Asset } from './config.ts';
-import { factory, listVaults, publicClient, vaultAt } from './chain.ts';
+import { agentFor, factory, listVaults, publicClient, vaultAt } from './chain.ts';
 import { readVault } from './market.ts';
 import { netDepositsUsd } from './pnl.ts';
-import { agentStatus, manualTrade } from './agent.ts';
+import { agentStatus, manualTrade, withdrawAgentGas } from './agent.ts';
 import { HttpError, login, newNonce, ownerOf } from './auth.ts';
 import { loadStrategy, readLog, saveStrategy, validateStrategy } from './store.ts';
 
@@ -53,6 +53,13 @@ const routes: Record<string, (c: Ctx) => Promise<unknown>> = {
   'GET /state': async ({ url }) => getState(await readTarget(url)),
   'GET /log': async ({ url }) => readLog(await readTarget(url)),
   'GET /nonce': async () => newNonce(),
+  // The agent wallet a new vault for `owner` should use. Addresses are public; the key never leaves the backend.
+  'GET /agent': async ({ url }) => {
+    const o = url.searchParams.get('owner');
+    if (!o || !isAddress(o)) throw new HttpError(400, 'owner must be an address');
+    return { address: agentFor(getAddress(o)).account.address };
+  },
+  'POST /agent/withdraw': async ({ req }) => withdrawAgentGas(await myVault(req)),
   'POST /login': async ({ body }) => login(body),
   'POST /strategy': async ({ req, body }) => {
     const vault = await myVault(req);

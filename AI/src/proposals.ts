@@ -17,6 +17,7 @@ export type StrategyProposal = {
   edgeBps?: number;
   slippageBps?: number;
   loopSeconds?: number;
+  minGapSeconds?: number;
   rationale: string;
 };
 

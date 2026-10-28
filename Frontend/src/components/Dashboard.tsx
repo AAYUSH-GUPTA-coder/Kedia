@@ -171,11 +171,11 @@ export function Dashboard() {
             <div className="grid gap-4 lg:grid-cols-12">
               <div className="min-w-0 space-y-4 lg:col-span-8">
                 <Positions s={s} />
-                <Decisions s={s} />
+                <Decisions s={s} isOwner={isOwner} refresh={refresh} />
                 <TradeLog log={log.data ?? []} />
               </div>
               <aside className="min-w-0 space-y-4 lg:col-span-4">
-                <Chat s={s} isOwner={isOwner} refresh={refresh} />
+                <Chat s={s} isOwner={isOwner} needsVault={mine.checked && !mine.vault} refresh={refresh} />
                 <PolicyPanel s={s} isOwner={isOwner} refresh={refresh} />
               </aside>
             </div>

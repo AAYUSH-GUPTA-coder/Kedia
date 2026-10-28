@@ -9,11 +9,6 @@ export const vaultFactoryAbi = [
         "internalType": "contract ISwapRouter02"
       },
       {
-        "name": "operator_",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
         "name": "policy_",
         "type": "tuple",
         "internalType": "struct GuardedVault.Policy",
@@ -74,7 +69,13 @@ export const vaultFactoryAbi = [
   {
     "type": "function",
     "name": "createVault",
-    "inputs": [],
+    "inputs": [
+      {
+        "name": "agent",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
     "outputs": [
       {
         "name": "vault",
@@ -82,7 +83,26 @@ export const vaultFactoryAbi = [
         "internalType": "address"
       }
     ],
-    "stateMutability": "nonpayable"
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "creatorOf",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -126,39 +146,6 @@ export const vaultFactoryAbi = [
   },
   {
     "type": "function",
-    "name": "operator",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "owner",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "renounceOwnership",
-    "inputs": [],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "router",
     "inputs": [],
     "outputs": [
@@ -169,32 +156,6 @@ export const vaultFactoryAbi = [
       }
     ],
     "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "setOperator",
-    "inputs": [
-      {
-        "name": "operator_",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "transferOwnership",
-    "inputs": [
-      {
-        "name": "newOwner",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -230,38 +191,6 @@ export const vaultFactoryAbi = [
   },
   {
     "type": "event",
-    "name": "OperatorSet",
-    "inputs": [
-      {
-        "name": "operator",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "OwnershipTransferred",
-    "inputs": [
-      {
-        "name": "previousOwner",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "newOwner",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "VaultCreated",
     "inputs": [
       {
@@ -275,36 +204,31 @@ export const vaultFactoryAbi = [
         "type": "address",
         "indexed": false,
         "internalType": "address"
+      },
+      {
+        "name": "agent",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "agentFunding",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
   },
   {
     "type": "error",
-    "name": "LengthMismatch",
+    "name": "AgentFundingFailed",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "OwnableInvalidOwner",
-    "inputs": [
-      {
-        "name": "owner",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "OwnableUnauthorizedAccount",
-    "inputs": [
-      {
-        "name": "account",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
+    "name": "LengthMismatch",
+    "inputs": []
   },
   {
     "type": "error",
@@ -316,5 +240,10 @@ export const vaultFactoryAbi = [
         "internalType": "address"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "ZeroAgent",
+    "inputs": []
   }
 ] as const;

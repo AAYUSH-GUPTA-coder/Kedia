@@ -6,10 +6,11 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 R=http://127.0.0.1:8547
-# anvil's well-known dev accounts 0 and 1: public test keys, never use them on mainnet.
+# anvil's well-known dev account 0: a public test key, never use it on mainnet.
 OWNER=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 OWNER_PK=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-OPERATOR=0x70997970C51812dc3A010C7d01b50e0d17dc79C8
+# Fork-only agent master key (keccak of a public phrase). Start the backend with the same value.
+AGENT_MASTER_KEY=0x15e88afcecd0892d8d4e40d498ec9d71f154643b0de7fc32d6fb573b7fd9340e
 USDT=0xF1B50eD67A9e2CC94Ad3c477779E2d4cBfFf9029
 WHSK=0xB210D2120d57b758EE163cFfb43e73728c471Cf1
 
@@ -18,7 +19,7 @@ cast chain-id -r $R >/dev/null 2>&1 || { echo "No fork on $R. Start: anvil --for
 # Mine a block every 2s so block time tracks the wall clock, which the stop-loss day boundary relies on.
 cast rpc evm_setIntervalMining 2 -r $R >/dev/null
 
-OPERATOR=$OPERATOR forge script script/Deploy.s.sol --rpc-url $R --broadcast --private-key $OWNER_PK >/dev/null
+AGENT_MASTER_KEY=$AGENT_MASTER_KEY forge script script/Deploy.s.sol --rpc-url $R --broadcast --private-key $OWNER_PK >/dev/null
 VAULT=$(python3 -c "import json;print(json.load(open('../ABI/addresses.json'))['demoVault'])")
 
 # Give the owner 100 fake USDT (OZ ERC20 balances live at slot 0) and wrap 300 HSK into WHSK.

@@ -11,8 +11,9 @@ import {ISwapRouter02} from "../src/interfaces/ISwapRouter02.sol";
 /**
  * @title Deploy
  * @author Aayush Gupta
- * @notice Deploys the Supra adapters and the VaultFactory, then creates the broadcaster's own vault as the demo vault.
- *         Usage: OPERATOR=0x... forge script script/Deploy.s.sol --rpc-url hsk --account owner --broadcast --verify
+ * @notice Deploys the Supra adapters and the VaultFactory, then creates the broadcaster's own vault as the demo vault
+ *         and funds its agent wallet with AGENT_FUNDING wei (default 5 HSK).
+ *         Usage: AGENT_MASTER_KEY=0x... forge script script/Deploy.s.sol --rpc-url hsk --account owner --broadcast --verify
  *         Writes the deployed addresses into ../ABI/addresses.json.
  */
 contract Deploy is Script {
@@ -20,7 +21,9 @@ contract Deploy is Script {
 
     function run() external {
         string memory cfg = vm.readFile(CONFIG);
-        address operator = vm.envAddress("OPERATOR");
+        // Same derivation as the backend's agentKey(): one agent wallet per vault creator.
+        address agent = vm.addr(uint256(keccak256(abi.encodePacked(vm.envBytes32("AGENT_MASTER_KEY"), msg.sender))));
+        uint256 funding = vm.envOr("AGENT_FUNDING", uint256(5 ether));
         ISupraSValueFeed supra = ISupraSValueFeed(vm.parseJsonAddress(cfg, ".supra.storage"));
         string[3] memory syms = ["USDT", "WHSK", "WETH"];
         address[] memory tokens = new address[](3);
@@ -34,7 +37,6 @@ contract Deploy is Script {
         }
         VaultFactory factory = new VaultFactory(
             ISwapRouter02(vm.parseJsonAddress(cfg, ".hskswap.swapRouter02")),
-            operator,
             GuardedVault.Policy({
                 maxTradeUsd: 10e8, // $10
                 dailyLossCapBps: 500, // 5%
@@ -45,7 +47,7 @@ contract Deploy is Script {
             tokens,
             feeds
         );
-        address demo = factory.createVault();
+        address demo = factory.createVault{value: funding}(agent);
         vm.stopBroadcast();
 
         vm.writeJson(_q(address(factory)), CONFIG, ".factory");
@@ -56,6 +58,7 @@ contract Deploy is Script {
         }
         console.log("VaultFactory", address(factory));
         console.log("Demo vault", demo);
+        console.log("Demo agent", agent);
     }
 
     function _q(address a) internal pure returns (string memory) {

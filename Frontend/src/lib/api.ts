@@ -4,12 +4,12 @@ import { clearSession, sessionToken } from "./session";
 export type Policy = { maxTradeUsd: number; dailyLossCapBps: number; maxOracleDeviationBps: number; cooldownSeconds: number; maxOracleAge: number };
 export type Position = { sym: Sym; address: string; allowed: boolean; feed: string; balance: number; price: number | null; usd: number };
 export type Decision = { sym: string; action: "buy" | "sell" | "hold"; reason: string; ref?: number; buy?: number; sell?: number; oracle?: number };
-export type Strategy = { mode: "meanReversion" | "momentum" | "off"; symbols: Sym[]; tradeUsd: number; edgeBps: number; slippageBps: number; loopSeconds: number };
+export type Strategy = { mode: "meanReversion" | "momentum" | "off"; symbols: Sym[]; tradeUsd: number; edgeBps: number; slippageBps: number; loopSeconds: number; minGapSeconds: number };
 export type State = {
   vault: { address: string; owner: string; operator: string; paused: boolean; policy: Policy; lastTradeAt: number; dayStartEquity: number; lossFloor: number; equity: number; positions: Position[] };
   pnl: { netDepositsUsd: number; pnlUsd: number; dayChangePct: number };
   strategy: Strategy;
-  agent: { lastTickAt: number; decisions: Decision[]; lastError: string | null; simulateOnly: boolean; operatorGasHsk: number; cooldownSeconds: number };
+  agent: { lastTickAt: number; decisions: Decision[]; lastError: string | null; simulateOnly: boolean; operatorGasHsk: number };
 };
 export type LogEntry = {
   ts: number; kind: "trade" | "rejected" | "simulated"; source: "agent" | "chat" | "demo"; sym: string; side: "buy" | "sell";
@@ -40,6 +40,9 @@ export const api = {
   chat: (messages: ChatTurn[]) => call<ChatResult>("/chat", { messages }, true),
   strategy: (patch: Partial<Strategy>) => call<Strategy>("/strategy", patch, true),
   trade: (t: { symbol: Sym; side: "buy" | "sell"; amount: number; unit: "usd" | "asset" }) => call<LogEntry>("/trade", t, true),
+  /** The agent wallet a new vault for `owner` will use. */
+  agent: (owner: string) => call<{ address: `0x${string}` }>(`/agent?owner=${owner}`),
+  withdrawAgentGas: () => call<{ txHash: string; amountHsk: string }>("/agent/withdraw", {}, true),
 };
 
 export const usd = (x: number) => `$${x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

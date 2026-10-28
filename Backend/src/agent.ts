@@ -1,9 +1,9 @@
-import { formatUnits, isAddressEqual, parseEventLogs, type Address } from 'viem';
+import { formatEther, formatUnits, isAddressEqual, parseEventLogs, type Address } from 'viem';
 import { ASSETS, cfg, SIMULATE_ONLY, token, type Asset } from './config.ts';
 import { guardedVaultAbi } from '@kedia/abi/GuardedVault';
-import { decodeRevert, listVaults, publicClient, vaultAt, wallet } from './chain.ts';
+import { agentOf, decodeRevert, listVaults, publicClient, vaultAt } from './chain.ts';
 import { readMarket, readVault } from './market.ts';
-import { AGENT_COOLDOWN_SECONDS, agentCooldownLeft, meanReversion, momentum, type Signal } from './strategy.ts';
+import { agentCooldownLeft, meanReversion, momentum, type Signal } from './strategy.ts';
 import { appendLog, loadStrategy, readLog, type LogEntry } from './store.ts';
 import { inputUnits, toRaw, type TradeSize } from './size.ts';
 
@@ -14,7 +14,7 @@ const histories = new Map<Address, Record<Asset, number[]>>();
 
 /** What the agent last decided for `vault`, for the dashboard and chat. */
 export const agentStatus = (vault: Address) => ({
-  ...(statuses.get(vault) ?? { lastTickAt: 0, decisions: [], lastError: null }), simulateOnly: SIMULATE_ONLY, cooldownSeconds: AGENT_COOLDOWN_SECONDS,
+  ...(statuses.get(vault) ?? { lastTickAt: 0, decisions: [], lastError: null }), simulateOnly: SIMULATE_ONLY,
 });
 
 type SwapRequest = {
@@ -29,10 +29,10 @@ function swapArgs(sym: Asset, side: 'buy' | 'sell', amountIn: bigint, minOut: bi
   return { tIn, tOut, args: [tIn.address, tOut.address, cfg.tokens[sym].fee, amountIn, minOut] as const };
 }
 
-/** Dry-runs executeSwap as the operator. Returns the decoded revert, or undefined if the vault would accept it. */
+/** Dry-runs executeSwap as the vault's agent. Returns the decoded revert, or undefined if the vault would accept it. */
 async function simulateSwap(vault: Address, args: ReturnType<typeof swapArgs>['args']): Promise<LogEntry['error']> {
   try {
-    await publicClient.simulateContract({ ...vaultAt(vault), functionName: 'executeSwap', args, account: wallet().account });
+    await publicClient.simulateContract({ ...vaultAt(vault), functionName: 'executeSwap', args, account: (await agentOf(vault)).account });
   } catch (e) {
     return decodeRevert(e);
   }
@@ -61,7 +61,7 @@ export async function submitSwap(r: SwapRequest): Promise<LogEntry> {
   if (error && !r.force) return log({ kind: 'rejected', error });
 
   // A fixed gas limit skips estimation, which would otherwise refuse to send a reverting tx.
-  const hash = await wallet().writeContract({ ...vaultAt(r.vault), functionName: 'executeSwap', args, gas: error ? 600_000n : undefined });
+  const hash = await (await agentOf(r.vault)).writeContract({ ...vaultAt(r.vault), functionName: 'executeSwap', args, gas: error ? 600_000n : undefined });
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
   if (receipt.status === 'reverted') return log({ kind: 'rejected', txHash: hash, error: error ?? { name: 'Reverted', args: [] } });
 
@@ -95,8 +95,9 @@ async function decide(vault: Address, decisions: Decision[]): Promise<void> {
 
   const v = await readVault(vault);
   if (v.paused) return void decisions.push({ sym: '-', action: 'hold', reason: 'vault paused by owner' });
-  if (!isAddressEqual(v.operator, wallet().account.address)) return void decisions.push({ sym: '-', action: 'hold', reason: 'vault uses a different agent key' });
-  const cooldownLeft = agentCooldownLeft(readLog(vault), Date.now());
+  if (!isAddressEqual(v.operator, (await agentOf(vault)).account.address)) return void decisions.push({ sym: '-', action: 'hold', reason: 'vault uses a different agent wallet' });
+  if ((await publicClient.getBalance({ address: v.operator })) === 0n) return void decisions.push({ sym: '-', action: 'hold', reason: 'agent wallet has no HSK for gas; top it up' });
+  const cooldownLeft = agentCooldownLeft(readLog(vault), Date.now(), s.minGapSeconds);
   const history = histories.get(vault) ?? { WHSK: [], WETH: [] };
   histories.set(vault, history);
   const usd = Math.min(s.tradeUsd, v.policy.maxTradeUsd * 0.98); // margin for USDT/oracle rounding
@@ -154,16 +155,30 @@ export async function manualTrade(vault: Address, sym: Asset, side: 'buy' | 'sel
   return submitSwap({ vault, sym, side, amountIn, minOut: 0n, source, reason: `user asked to ${side} ${label}`, force: true });
 }
 
+/** Sends the HSK in `vault`'s agent wallet back to the vault's current owner, keeping enough to pay for this transfer. */
+export async function withdrawAgentGas(vault: Address) {
+  const agent = await agentOf(vault);
+  const [owner, balance, fees] = await Promise.all([
+    publicClient.readContract({ ...vaultAt(vault), functionName: 'owner' }),
+    publicClient.getBalance({ address: agent.account.address }),
+    publicClient.estimateFeesPerGas(),
+  ]);
+  const gas = await publicClient.estimateGas({ account: agent.account, to: owner, value: 1n });
+  const keep = gas * fees.maxFeePerGas * 2n; // 2x: headroom for a fee rise and the OP-stack L1 data fee
+  if (balance <= keep) throw new Error(`The agent wallet holds ${formatEther(balance)} HSK, too little to send back.`);
+  const hash = await agent.sendTransaction({ to: owner, value: balance - keep, gas, maxFeePerGas: fees.maxFeePerGas, maxPriorityFeePerGas: fees.maxPriorityFeePerGas });
+  await publicClient.waitForTransactionReceipt({ hash });
+  return { txHash: hash, amountHsk: formatEther(balance - keep) };
+}
+
 const WAKE_MS = 5000;
 
-/** Wakes every few seconds and ticks each factory vault whose own loopSeconds has passed. Trades run one at a time: they share the operator's nonce. */
+/** Wakes every few seconds and ticks every factory vault whose own loopSeconds has passed, in parallel: each vault has its own agent wallet and nonce. */
 export function startLoop() {
   const loop = async () => {
     try {
-      for (const vault of await listVaults()) {
-        const last = statuses.get(vault)?.lastTickAt ?? 0;
-        if (Date.now() - last >= loadStrategy(vault).loopSeconds * 1000) await tick(vault);
-      }
+      const due = (await listVaults()).filter((v) => Date.now() - (statuses.get(v)?.lastTickAt ?? 0) >= loadStrategy(v).loopSeconds * 1000);
+      await Promise.all(due.map(tick)); // tick records its own errors
     } catch (e) {
       console.error('[agent]', e instanceof Error ? e.message : e);
     }

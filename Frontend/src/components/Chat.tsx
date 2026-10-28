@@ -27,7 +27,7 @@ const MD = {
 
 const SUGGESTIONS = ["What are my positions and P&L?", "Halve my risk and stop trading WETH", "Buy $100 of WHSK right now", "Switch to momentum with $3 trades"];
 
-export function Chat({ s, isOwner, refresh }: { s: State; isOwner: boolean; refresh: () => void }) {
+export function Chat({ s, isOwner, needsVault, refresh }: { s: State; isOwner: boolean; needsVault: boolean; refresh: () => void }) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -81,7 +81,7 @@ export function Chat({ s, isOwner, refresh }: { s: State; isOwner: boolean; refr
             <input aria-label="Message the agent" value={input} onChange={(e) => setInput(e.target.value)} placeholder="e.g. take less risk" className={`min-w-0 flex-1 ${field}`} />
             <Button type="submit" variant="primary" disabled={busy || !input.trim()}>Send</Button>
           </form>
-        ) : <p className="px-1 py-1 text-xs text-faint">Connect the wallet that owns this vault to talk to its agent.</p>}
+        ) : <p className="px-1 py-1 text-xs text-faint">{needsVault ? "This is the demo vault. Create your vault above to talk to your own agent." : "Connect the wallet that owns this vault to talk to its agent."}</p>}
       </div>
     </Panel>
   );

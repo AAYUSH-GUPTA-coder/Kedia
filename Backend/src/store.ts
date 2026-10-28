@@ -25,8 +25,8 @@ function writeJson(file: URL, data: unknown) {
 }
 
 /** Off-chain knobs the user changes by chat without signing. On-chain limits live in the vault. */
-export type Strategy = { mode: Mode; symbols: Asset[]; tradeUsd: number; edgeBps: number; slippageBps: number; loopSeconds: number };
-export const DEFAULT_STRATEGY: Strategy = { mode: 'meanReversion', symbols: ['WHSK', 'WETH'], tradeUsd: 5, edgeBps: 60, slippageBps: 50, loopSeconds: 30 };
+export type Strategy = { mode: Mode; symbols: Asset[]; tradeUsd: number; edgeBps: number; slippageBps: number; loopSeconds: number; minGapSeconds: number };
+export const DEFAULT_STRATEGY: Strategy = { mode: 'meanReversion', symbols: ['WHSK', 'WETH'], tradeUsd: 5, edgeBps: 60, slippageBps: 50, loopSeconds: 30, minGapSeconds: 300 };
 
 export const loadStrategy = (vault: Address): Strategy => ({ ...DEFAULT_STRATEGY, ...readJson<Partial<Strategy>>(file(vault, 'state.json'), {}) });
 
@@ -45,6 +45,7 @@ export function validateStrategy(s: Strategy): string | null {
   if (!(s.edgeBps >= 0 && s.edgeBps <= 2000)) return 'edgeBps must be in [0, 2000]';
   if (!(s.slippageBps >= 0 && s.slippageBps <= 1000)) return 'slippageBps must be in [0, 1000]';
   if (!(s.loopSeconds >= 5 && s.loopSeconds <= 3600)) return 'loopSeconds must be in [5, 3600]';
+  if (!(Number.isInteger(s.minGapSeconds) && s.minGapSeconds >= 0 && s.minGapSeconds <= 86_400)) return 'minGapSeconds must be an integer in [0, 86400]';
   return null;
 }
 

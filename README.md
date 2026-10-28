@@ -66,7 +66,7 @@ flowchart LR
     subgraph Off-chain
         UI["Dashboard<br/>(Next.js)"]
         API["Backend API"]
-        Agent["Trading agent<br/>(operator key)"]
+        Agent["Trading agent<br/>(one agent wallet per vault)"]
         Chat["Chat<br/>Claude Sonnet 5.5<br/>via Hopscotch Labs"]
     end
     subgraph Market data
@@ -99,14 +99,18 @@ There are three roles, and each can do only its own job:
 | Role | Holds | Can | Cannot |
 |---|---|---|---|
 | **You (owner)** | Your wallet | Deposit, withdraw, pause, change rules, replace the agent | Nothing is off limits |
-| **The agent (operator)** | A fresh key with gas money only | Ask the vault for a swap | Withdraw, change rules, trade a blocked token, exceed a limit |
+| **The agent (operator)** | Its own wallet per vault, holding only HSK for gas | Ask its own vault for a swap | Withdraw, change rules, trade a blocked token or another user's vault, exceed a limit |
 | **The chat model** | No key at all | Read state, propose rule or strategy changes, ask the agent to try a trade you requested | Apply anything without your click or signature |
 
-### Many users, one agent
+### Many users, one agent wallet each
 
-Anyone can use the same dashboard. Connecting a wallet that has no vault shows **Create your vault**. One transaction, about 1 HSK in gas, asks `VaultFactory` to deploy a GuardedVault that this wallet owns. The factory records the wallet-to-vault mapping on-chain (`vaultOf(wallet)`), allows one vault per wallet, and keeps no control after creation.
+Anyone can use the same dashboard. Connecting a wallet that has no vault shows **Create your vault**. One transaction, about 1 HSK in gas plus the HSK you give the agent (5 by default), asks `VaultFactory` to deploy a GuardedVault that this wallet owns. The factory records the wallet-to-vault mapping on-chain (`vaultOf(wallet)`), allows one vault per wallet, and keeps no control after creation.
 
-Every vault names the same platform agent as its operator, so users never fund or run an agent themselves. The agent loops over every vault in the factory, each with its own strategy, trade log and P&L. Even if the agent's key leaked, it could only make trades inside each owner's rules. It could never withdraw, and every owner can pause or replace the agent at any time.
+Every vault gets its own agent wallet as its operator, and the same transaction sends it the HSK it pays gas with. Each user's trades are paid from their own agent's HSK, and vaults trade in parallel because each agent wallet has its own nonce. The backend derives every agent key from one secret (`AGENT_MASTER_KEY`) and the vault creator's address, so it stores no keys. The agent panel shows the agent wallet; the owner can top it up, or take the HSK back to their wallet at any time.
+
+The owner also edits the agent's settings in the same panel or by chat: strategy, which tokens it trades, size per trade, edge, slippage, how often it checks prices and the minimum gap between its own trades. These are off-chain settings, so they need no signature, and the vault's on-chain rules still bound every trade.
+
+An agent wallet can only call `executeSwap` on its own vault. Even if the master secret leaked, an attacker could take the gas HSK and make trades inside each owner's rules, but could never withdraw vault funds, and every owner can pause or replace the agent at any time.
 
 Chat, strategy changes and requested trades ask the wallet to sign in once with a free signature ([Sign-In with Ethereum](https://eips.ethereum.org/EIPS/eip-4361)). The backend then acts only on the vault that wallet owns, looked up on-chain. Visitors without a wallet see a read-only demo vault.
 
@@ -215,7 +219,7 @@ Requirements: Foundry 1.8.6 (`foundryup --install 1.8.6`), Node 24, pnpm.
 ```bash
 git submodule update --init --recursive
 pnpm install
-pnpm test        # 28 fork tests + backend, AI and frontend unit tests
+pnpm test        # 31 fork tests + backend, AI and frontend unit tests
 ```
 
 ### Test locally on a mainnet fork (fake money)
@@ -232,10 +236,10 @@ Terminal 2, from the repo root, deploys the factory and funds the demo vault (30
 SmartContracts/fork-setup.sh
 ```
 
-Still in terminal 2, start the backend against the fork with anvil's test operator key. These values override `Backend/.env` for this run only; chat still uses your Hopscotch key from `.env`.
+Still in terminal 2, start the backend against the fork with the fork-only agent master key that `fork-setup.sh` uses. These values override `Backend/.env` for this run only; chat still uses your Hopscotch key from `.env`.
 
 ```bash
-RPC_URL=http://127.0.0.1:8547 OPERATOR_PRIVATE_KEY=0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d pnpm backend
+RPC_URL=http://127.0.0.1:8547 AGENT_MASTER_KEY=0x15e88afcecd0892d8d4e40d498ec9d71f154643b0de7fc32d6fb573b7fd9340e pnpm backend
 ```
 
 Terminal 3, from the repo root, starts the dashboard at http://localhost:3000:
@@ -252,23 +256,24 @@ git checkout ABI/addresses.json
 
 ### Deploy to mainnet
 
-You need two wallets:
+You need your **owner** wallet and an **agent master key**:
 
-- **Owner**: your wallet. It holds the funds you deposit (about $30 to $50 of USDT plus a little WHSK or WETH) and about 5 HSK for gas.
-- **Operator**: a fresh key for the agent. It needs HSK for gas only, about 15 HSK for a week of active trading, and never holds funds.
+- **Owner**: your wallet. It holds the funds you deposit (about $30 to $50 of USDT plus a little WHSK or WETH) and about 10 HSK: gas to deploy, plus the HSK the demo vault's agent trades with.
+- **Agent master key**: a random 32-byte secret the backend derives every agent wallet from. Keep it secret and backed up; the same value goes in `Backend/.env`.
 
 ```bash
 cast wallet import owner --interactive
+cast keccak "$(openssl rand -hex 32)"         # your AGENT_MASTER_KEY
 cd SmartContracts
-OPERATOR=<operator address> forge script script/Deploy.s.sol --rpc-url hsk --account owner --broadcast --verify
+AGENT_MASTER_KEY=<key> forge script script/Deploy.s.sol --rpc-url hsk --account owner --broadcast --verify
 ```
 
-The script deploys three price adapters and `VaultFactory`, with the operator as the agent for new vaults and the default rules from the table above. It then creates the owner wallet's own vault, which visitors see as the demo vault, and writes the addresses into `ABI/addresses.json`.
+The script deploys three price adapters and `VaultFactory` with the default rules from the table above. It then creates the owner wallet's own vault, which visitors see as the demo vault, sends its agent wallet 5 HSK (set `AGENT_FUNDING` in wei to change it), and writes the addresses into `ABI/addresses.json`.
 
 ### Run
 
 ```bash
-cp Backend/.env.example Backend/.env          # set OPERATOR_PRIVATE_KEY and HOPSCOTCH_API_KEY
+cp Backend/.env.example Backend/.env          # set AGENT_MASTER_KEY and HOPSCOTCH_API_KEY
 cp Frontend/.env.example Frontend/.env.local
 pnpm backend                                  # API on :8787 plus the trading loop
 pnpm frontend                                 # dashboard on :3000
@@ -314,7 +319,8 @@ Hopscotch refuses `reasoning_effort` for this model, so requests run at the mode
 
 ## Known limits
 
-- One vault per wallet, no upgradeability. The platform's agent pays the gas for every vault and charges nothing yet.
+- One vault per wallet, no upgradeability. Each user pays their own agent's gas; the platform charges nothing yet.
+- All agent wallets come from one master secret on the backend, so the backend must be trusted with every agent's gas HSK (never with vault funds).
 - Sign-in sessions live in the backend's memory, so a backend restart asks each user to sign in again.
 - The stop-loss is marked at oracle prices, so a lagging feed can hold equity under the floor and block trading until the price recovers or the next UTC day starts. That is the guardrail working. The owner can also reset it by depositing, withdrawing or raising the cap.
 - Supra's on-chain prices are refreshed by whoever pushes Supra proofs. The vault refuses to trade if a price is older than the freshness limit.

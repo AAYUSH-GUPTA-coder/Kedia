@@ -7,7 +7,7 @@ import { cfg, SYMS, vaultAt, wagmiConfig, type Sym } from "@/lib/config";
 import { api, fmtError, pct, usd, type State } from "@/lib/api";
 import { parsePolicyForm, proposalCalls, toPolicyForm, type PolicyForm } from "@/lib/policy";
 import { useVaultTx } from "@/lib/useVaultTx";
-import { Button, field, Panel, Tag, TxResult } from "./ui";
+import { Button, Field, field, Panel, Tag, TxResult } from "./ui";
 
 export function PolicyPanel({ s, isOwner, refresh }: { s: State; isOwner: boolean; refresh: () => void }) {
   const p = s.vault.policy;
@@ -135,18 +135,5 @@ export function PolicyPanel({ s, isOwner, refresh }: { s: State; isOwner: boolea
         </div>
       )}
     </Panel>
-  );
-}
-
-function Field({ label, prefix, suffix, hint, value, onChange }: { label: string; prefix?: string; suffix?: string; hint?: string; value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void }) {
-  return (
-    <label className="flex items-center justify-between gap-4 py-1.5">
-      <span className="text-muted">{label}{hint && <span className="block text-xs text-faint">{hint}</span>}</span>
-      <span className="flex w-28 items-center rounded-md border border-line-strong bg-canvas px-2 transition-colors focus-within:border-accent/70">
-        {prefix && <span className="text-faint">{prefix}</span>}
-        <input aria-label={label} value={value} onChange={onChange} inputMode="decimal" className="w-full min-w-0 bg-transparent py-1.5 text-right font-mono tabular-nums focus:outline-none" />
-        {suffix && <span className="pl-1 text-faint">{suffix}</span>}
-      </span>
-    </label>
   );
 }

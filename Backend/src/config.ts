@@ -17,7 +17,12 @@ export const DEMO_VAULT = addresses.demoVault as Address;
 export const ROUTER = addresses.hskswap.swapRouter02 as Address;
 export const QUOTER = addresses.hskswap.quoterV2 as Address;
 export const RPC_URL = process.env.RPC_URL ?? addresses.rpcUrl;
-export const OPERATOR_KEY = () => env('OPERATOR_PRIVATE_KEY') as Hex;
+/** Secret every agent wallet is derived from, one per vault creator. Whoever holds it controls every agent wallet's gas, never vault funds. */
+export const AGENT_MASTER_KEY = (): Hex => {
+  const k = env('AGENT_MASTER_KEY');
+  if (!/^0x[0-9a-fA-F]{64}$/.test(k)) throw new Error('AGENT_MASTER_KEY must be 32 bytes of hex: 0x and 64 hex characters');
+  return k as Hex;
+};
 export const PORT = Number(process.env.PORT ?? 8787);
 /** 127.0.0.1 locally; set 0.0.0.0 when the API is hosted. */
 export const HOST = process.env.HOST ?? '127.0.0.1';
