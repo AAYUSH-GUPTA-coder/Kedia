@@ -7,7 +7,7 @@ import { cfg, SYMS, vaultAt, wagmiConfig, type Sym } from "@/lib/config";
 import { api, fmtError, pct, usd, type State } from "@/lib/api";
 import { parsePolicyForm, proposalCalls, toPolicyForm, type PolicyForm } from "@/lib/policy";
 import { useVaultTx } from "@/lib/useVaultTx";
-import { Button, field, Panel, TxResult } from "./ui";
+import { Button, field, Panel, Tag, TxResult } from "./ui";
 
 export function PolicyPanel({ s, isOwner, refresh }: { s: State; isOwner: boolean; refresh: () => void }) {
   const p = s.vault.policy;
@@ -58,14 +58,14 @@ export function PolicyPanel({ s, isOwner, refresh }: { s: State; isOwner: boolea
       title="On-chain policy"
       right={
         <div className="flex items-center gap-2">
-          {s.vault.paused && <span className="rounded-md bg-rose-500/20 px-2 py-0.5 text-xs font-medium text-rose-300">Paused</span>}
+          {s.vault.paused && <Tag tone="bad">Paused</Tag>}
           {!form && <Button disabled={!isOwner || !!policyTx.busy} onClick={() => setForm(toPolicyForm(p, allowedNow))}>Edit</Button>}
         </div>
       }
     >
       {form ? (
         <form onSubmit={(e) => { e.preventDefault(); apply(); }}>
-          <div className="divide-y divide-white/[0.06] border-t border-white/10 text-sm">
+          <div className="-mt-1.5 divide-y divide-line text-sm">
             <Field label="Max trade size" prefix="$" value={form.maxTradeUsd} onChange={edit("maxTradeUsd")} />
             <Field label="Daily loss cap (stop-loss)" suffix="%" value={form.dailyLossCapPct} onChange={edit("dailyLossCapPct")} />
             <Field label="Max fill vs oracle shortfall" suffix="%" value={form.maxOracleDeviationPct} onChange={edit("maxOracleDeviationPct")} />
@@ -73,46 +73,46 @@ export function PolicyPanel({ s, isOwner, refresh }: { s: State; isOwner: boolea
             <Field label="Max oracle age" suffix="h" value={form.maxOracleAgeHours} onChange={edit("maxOracleAgeHours")} />
             <fieldset className="flex items-center justify-between gap-4 py-2">
               <legend className="sr-only">Tradable tokens</legend>
-              <span aria-hidden className="text-white/55">Tradable tokens</span>
+              <span aria-hidden className="text-muted">Tradable tokens</span>
               <div className="flex gap-3">
                 {s.vault.positions.map((x) => (
                   <label key={x.sym} className="inline-flex cursor-pointer items-center gap-1.5">
-                    <input type="checkbox" aria-label={`Allow ${x.sym}`} checked={form.allowedTokens.includes(x.sym)} onChange={() => toggle(x.sym)} className="accent-emerald-400" />
+                    <input type="checkbox" aria-label={`Allow ${x.sym}`} checked={form.allowedTokens.includes(x.sym)} onChange={() => toggle(x.sym)} className="accent-accent" />
                     {x.sym}
                   </label>
                 ))}
               </div>
             </fieldset>
           </div>
-          {parsed && "error" in parsed && <p className="mt-3 text-xs text-rose-300" role="alert">{parsed.error}</p>}
-          <div className="mt-3 flex gap-2">
+          {parsed && "error" in parsed && <p className="mt-3 text-xs text-down" role="alert">{parsed.error}</p>}
+          <div className="mt-4 flex gap-2">
             <Button type="submit" variant="primary" disabled={!!policyTx.busy || !parsed || "error" in parsed}>{policyTx.busy ? "Confirm in wallet…" : "Sign & apply"}</Button>
             <Button type="button" onClick={() => setForm(null)} disabled={!!policyTx.busy}>Cancel</Button>
           </div>
-          <p className="mt-2 text-xs text-white/45">One signature updates the limits and the token list together.</p>
+          <p className="mt-2 text-xs text-faint">One signature updates the limits and the token list together.</p>
         </form>
       ) : (
-        <dl className="divide-y divide-white/[0.06] border-t border-white/10 text-sm">
+        <dl className="-my-2 divide-y divide-line text-sm">
           {rows.map(([k, v]) => (
-            <div key={k} className="flex items-baseline justify-between gap-4 py-2">
-              <dt className="text-white/55">{k}</dt>
-              <dd className="text-right tabular-nums">{v}</dd>
+            <div key={k} className="flex items-baseline justify-between gap-4 py-2.5">
+              <dt className="text-muted">{k}</dt>
+              <dd className="text-right font-mono tabular-nums">{v}</dd>
             </div>
           ))}
         </dl>
       )}
-      {!form && <p className="mt-3 text-xs text-white/45">Enforced by the vault contract. {isOwner ? "Edit it here or ask in chat." : "Only the owner wallet can change it; connect it to edit. The agent's key cannot."}</p>}
+      {!form && <p className="mt-4 border-t border-line pt-3 text-xs leading-relaxed text-faint">Enforced by the vault contract. {isOwner ? "Edit it here or ask in chat." : "Only the owner wallet can change it; connect it to edit. The agent's key cannot."}</p>}
       <TxResult result={policyTx.result} />
 
-      {isOwner && <div className="mt-6">
+      {isOwner && <div className="-mx-4 mt-4 border-t border-line px-4 pt-4">
         <h3 className="text-sm font-semibold">Guardrail demo</h3>
-        <p className="mt-1 text-xs text-white/55">Asks the agent to buy {usd(p.maxTradeUsd * 10)} of WHSK, 10× the limit. The transaction is sent anyway so the revert is visible on-chain.</p>
+        <p className="mt-1 text-xs leading-relaxed text-muted">Asks the agent to buy {usd(p.maxTradeUsd * 10)} of WHSK, 10× the limit. The transaction is sent anyway so the revert is visible on-chain.</p>
         <div className="mt-3"><Button variant="danger" onClick={tryBreach} disabled={breach.busy}>{breach.busy ? "Sending…" : "Try to trade 10× the limit"}</Button></div>
-        {breach.text && <p className="mt-2 font-mono text-xs text-rose-300">{breach.text}</p>}
+        {breach.text && <p className="mt-2 font-mono text-xs text-down">{breach.text}</p>}
       </div>}
 
       {isOwner && (
-        <div className="mt-6 space-y-3">
+        <div className="-mx-4 mt-4 space-y-3 border-t border-line px-4 pt-4">
           <h3 className="text-sm font-semibold">Owner actions</h3>
           <div>
             {s.vault.paused
@@ -130,7 +130,7 @@ export function PolicyPanel({ s, isOwner, refresh }: { s: State; isOwner: boolea
             <Button disabled={!!tx.busy || !Number(amount)} onClick={() => tx.send(`Withdraw ${amount} ${sym}`,
               () => writeContract(wagmiConfig, { ...vault, functionName: "withdraw", args: [token.address, raw(), s.vault.owner as Address] }))}>Withdraw</Button>
           </div>
-          {tx.busy && <p className="text-xs text-white/50">{tx.busy}: confirm in your wallet…</p>}
+          {tx.busy && <p className="text-xs text-muted">{tx.busy}: confirm in your wallet…</p>}
           <TxResult result={tx.result} />
         </div>
       )}
@@ -141,11 +141,11 @@ export function PolicyPanel({ s, isOwner, refresh }: { s: State; isOwner: boolea
 function Field({ label, prefix, suffix, hint, value, onChange }: { label: string; prefix?: string; suffix?: string; hint?: string; value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void }) {
   return (
     <label className="flex items-center justify-between gap-4 py-1.5">
-      <span className="text-white/55">{label}{hint && <span className="block text-xs text-white/35">{hint}</span>}</span>
-      <span className={`flex w-28 items-center rounded-lg border border-white/15 bg-black px-2 focus-within:border-white/40`}>
-        {prefix && <span className="text-white/40">{prefix}</span>}
-        <input aria-label={label} value={value} onChange={onChange} inputMode="decimal" className="w-full min-w-0 bg-transparent py-1.5 text-right tabular-nums focus:outline-none" />
-        {suffix && <span className="pl-1 text-white/40">{suffix}</span>}
+      <span className="text-muted">{label}{hint && <span className="block text-xs text-faint">{hint}</span>}</span>
+      <span className="flex w-28 items-center rounded-md border border-line-strong bg-canvas px-2 transition-colors focus-within:border-accent/70">
+        {prefix && <span className="text-faint">{prefix}</span>}
+        <input aria-label={label} value={value} onChange={onChange} inputMode="decimal" className="w-full min-w-0 bg-transparent py-1.5 text-right font-mono tabular-nums focus:outline-none" />
+        {suffix && <span className="pl-1 text-faint">{suffix}</span>}
       </span>
     </label>
   );

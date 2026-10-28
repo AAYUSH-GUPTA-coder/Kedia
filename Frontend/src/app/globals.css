@@ -5,6 +5,33 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Warm graphite, one orange "guard" accent. Green and red only ever mean up/down or allowed/blocked. */
+@theme {
+  --color-canvas: #0e0e0c;
+  --color-panel: #151513;
+  --color-raised: #1f1e1b;
+  --color-line: rgb(255 248 235 / 0.08);
+  --color-line-strong: rgb(255 248 235 / 0.15);
+  --color-fg: #edebe4;
+  --color-muted: #a3a199;
+  --color-faint: #87857c;
+  --color-accent: #ff8a3d;
+  --color-up: #5fd38d;
+  --color-down: #f2716b;
+  --color-warn: #e9c46a;
+
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --tracking-label: 0.08em;
+
+  --default-transition-duration: 150ms;
+  --default-transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
 html {
   color-scheme: dark;
+}
+
+::selection {
+  background: rgb(255 138 61 / 0.3);
 }

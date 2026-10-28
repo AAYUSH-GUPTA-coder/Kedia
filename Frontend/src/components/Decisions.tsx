@@ -1,34 +1,48 @@
 import type { State } from "@/lib/api";
 import { num } from "@/lib/api";
-import { Panel } from "./ui";
+import { label, Panel, Tag } from "./ui";
 
-const tone = { buy: "text-emerald-400", sell: "text-amber-400", hold: "text-white/45" };
+const TONE = { buy: "good", sell: "bad", hold: "muted" } as const;
 const MODE = { meanReversion: "Mean reversion", momentum: "Momentum", off: "Off" };
 
 export function Decisions({ s }: { s: State }) {
   const a = s.agent;
   const st = s.strategy;
-  const meta = [MODE[st.mode], `$${st.tradeUsd} per trade`, `${st.edgeBps} bps edge`, `checks every ${st.loopSeconds}s`, `trades at most every ${a.cooldownSeconds / 60} min`, `${a.operatorGasHsk.toFixed(3)} HSK gas`];
+  const stats: [string, string][] = [
+    ["Per trade", `$${st.tradeUsd}`],
+    ["Edge", `${st.edgeBps} bps`],
+    ["Checks every", `${st.loopSeconds}s`],
+    ["Min gap", `${a.cooldownSeconds / 60} min`],
+    ["Gas left", `${a.operatorGasHsk.toFixed(3)} HSK`],
+  ];
   return (
-    <Panel title="Agent" right={<span className="text-xs text-white/45">{meta.join(" · ")}</span>}>
-      {a.simulateOnly && <p className="mb-3 text-xs text-amber-300">Simulate-only mode: decisions are checked against the vault but never sent.</p>}
-      {a.lastError && <p className="mb-3 rounded-md border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-xs text-rose-300">Last error: {a.lastError}</p>}
-      <ul className="divide-y divide-white/[0.06] border-t border-white/10">
+    <Panel flush title="Agent" right={<Tag tone={st.mode === "off" ? "muted" : "accent"}>{MODE[st.mode]}</Tag>}>
+      <dl className="grid grid-cols-2 gap-px border-b border-line bg-line sm:grid-cols-5">
+        {stats.map(([k, v]) => (
+          <div key={k} className="bg-panel px-4 py-3 last:col-span-2 sm:last:col-span-1">
+            <dt className={label}>{k}</dt>
+            <dd className="mt-1 font-mono text-sm tabular-nums">{v}</dd>
+          </div>
+        ))}
+      </dl>
+      {a.simulateOnly && <p className="border-b border-line bg-warn/5 px-4 py-2.5 text-xs text-warn">Simulate-only mode: decisions are checked against the vault but never sent.</p>}
+      {a.lastError && <p className="border-b border-line bg-down/5 px-4 py-2.5 font-mono text-xs text-down">Last error: {a.lastError}</p>}
+      <ul className="divide-y divide-line">
         {a.decisions.map((d, i) => (
-          <li key={i} className="grid grid-cols-[3.5rem_3rem_1fr] gap-x-3 py-3 text-sm">
+          <li key={i} className="grid grid-cols-[3.5rem_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5 px-4 py-3 text-sm sm:grid-cols-[3.5rem_3.5rem_minmax(0,1fr)]">
             <span className="font-medium">{d.sym}</span>
-            <span className={`font-semibold uppercase ${tone[d.action]}`}>{d.action}</span>
-            <div className="min-w-0">
-              <p className="text-white/80">{d.reason}</p>
+            <span><Tag tone={TONE[d.action]}>{d.action}</Tag></span>
+            <div className="col-span-2 min-w-0 sm:col-span-1">
+              <p>{d.reason}</p>
               {d.ref !== undefined && (
-                <p className="mt-1 text-xs text-white/40 tabular-nums">
-                  ref {num(d.ref, 5)} · pool ask {num(d.buy ?? 0, 5)} · pool bid {num(d.sell ?? 0, 5)} · oracle {num(d.oracle ?? 0, 5)}
+                <p className="mt-1 font-mono text-xs text-faint tabular-nums">
+                  ref {num(d.ref, 5)} · ask {num(d.buy ?? 0, 5)} · bid {num(d.sell ?? 0, 5)} · oracle {num(d.oracle ?? 0, 5)}
                 </p>
               )}
             </div>
           </li>
         ))}
-        {a.decisions.length === 0 && <li className="py-3 text-sm text-white/40">Waiting for the first check. The agent looks at the market every {st.loopSeconds}s.</li>}
+        {a.decisions.length === 0 && <li className="px-4 py-4 text-sm text-faint">Waiting for the first check. The agent looks at the market every {st.loopSeconds}s.</li>}
       </ul>
     </Panel>
   );
