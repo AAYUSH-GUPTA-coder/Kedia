@@ -83,7 +83,9 @@ async function decide(decisions: Decision[]): Promise<void> {
 
   const v = await readVault();
   if (v.paused) return void decisions.push({ sym: '-', action: 'hold', reason: 'vault paused by owner' });
-  const cooling = Date.now() / 1000 < v.lastTradeAt + v.policy.cooldownSeconds;
+  // The vault times the cooldown by block time, which on an idle anvil fork stops moving, so use the chain's clock.
+  const now = Number((await publicClient.getBlock()).timestamp);
+  const cooling = now < v.lastTradeAt + v.policy.cooldownSeconds;
   const usd = Math.min(s.tradeUsd, v.policy.maxTradeUsd * 0.98); // margin for USDT/oracle rounding
   const usdt = v.positions.find((p) => p.sym === 'USDT')!;
 
