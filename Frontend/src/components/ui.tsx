@@ -26,14 +26,14 @@ export function Metric({ label, value, sub, tone, lead, children }: { label: str
   );
 }
 
-export function Button({ children, onClick, disabled, variant = "default" }: { children: ReactNode; onClick?: () => void; disabled?: boolean; variant?: "default" | "primary" | "danger" }) {
+export function Button({ children, onClick, disabled, type, variant = "default" }: { children: ReactNode; onClick?: () => void; disabled?: boolean; type?: "button" | "submit"; variant?: "default" | "primary" | "danger" }) {
   const styles = {
     default: "border-white/15 bg-white/5 hover:bg-white/10",
     primary: "border-emerald-500/40 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25",
     danger: "border-rose-500/40 bg-rose-500/15 text-rose-200 hover:bg-rose-500/25",
   }[variant];
   return (
-    <button onClick={onClick} disabled={disabled} className={`rounded-lg border px-3 py-1.5 text-sm transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400 disabled:cursor-not-allowed disabled:opacity-40 ${styles}`}>
+    <button type={type} onClick={onClick} disabled={disabled} className={`rounded-lg border px-3 py-1.5 text-sm transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400 disabled:cursor-not-allowed disabled:opacity-40 ${styles}`}>
       {children}
     </button>
   );
