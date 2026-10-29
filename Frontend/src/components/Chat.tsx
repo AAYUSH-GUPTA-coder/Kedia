@@ -62,7 +62,7 @@ export function Chat({ s, isOwner, needsVault, refresh }: { s: State; isOwner: b
           </div>
         )}
         {msgs.map((m, i) => (
-          <div key={i} className={m.role === "user" ? "ml-8 rounded-lg bg-raised px-3 py-2" : "mr-4 leading-relaxed"}>
+          <div key={i} className={`break-words ${m.role === "user" ? "ml-8 rounded-lg bg-raised px-3 py-2" : "mr-4 leading-relaxed"}`}>
             {m.role === "user" ? <p className="whitespace-pre-wrap">{m.content}</p> : <Markdown remarkPlugins={[remarkGfm]} components={MD}>{m.content}</Markdown>}
             {m.trades?.map((t, j) => (
               <p key={j} className={`mt-1 font-mono text-xs ${t.kind === "trade" ? "text-up" : "text-down"}`}>
