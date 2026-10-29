@@ -60,6 +60,17 @@ export type LogEntry = {
   reason: string;
 };
 
+/** One point on the dashboard's value chart. floorUsd is 0 until the day's stop-loss is armed. */
+export type EquityPoint = { ts: number; equityUsd: number; floorUsd: number };
+const MAX_POINTS = 2880; // two days at one point a minute
+export const readEquity = (vault: Address): EquityPoint[] => readJson<EquityPoint[]>(file(vault, 'equity.json'), []);
+/** Records at most one point a minute, so the file stays small whatever the agent's check interval. */
+export function appendEquity(vault: Address, p: EquityPoint) {
+  const points = readEquity(vault);
+  if (points.length && p.ts - points[points.length - 1].ts < 60_000) return;
+  writeJson(file(vault, 'equity.json'), [...points, p].slice(-MAX_POINTS));
+}
+
 const MAX_LOG = 500;
 export const readLog = (vault: Address): LogEntry[] => readJson<LogEntry[]>(file(vault, 'trades.json'), []);
 export function appendLog(vault: Address, e: LogEntry) {

@@ -4,7 +4,7 @@ import { guardedVaultAbi } from '@kedia/abi/GuardedVault';
 import { agentOf, decodeRevert, listVaults, publicClient, vaultAt } from './chain.ts';
 import { readMarket, readVault } from './market.ts';
 import { agentCooldownLeft, meanReversion, momentum, type Signal } from './strategy.ts';
-import { appendLog, loadStrategy, readLog, type LogEntry } from './store.ts';
+import { appendEquity, appendLog, loadStrategy, readLog, type LogEntry } from './store.ts';
 import { inputUnits, toRaw, type TradeSize } from './size.ts';
 
 export type Decision = Signal & { sym: Asset | '-'; ref?: number; buy?: number; sell?: number; oracle?: number };
@@ -91,9 +91,10 @@ export async function tick(vault: Address): Promise<void> {
 
 async function decide(vault: Address, decisions: Decision[]): Promise<void> {
   const s = loadStrategy(vault);
+  const v = await readVault(vault);
+  appendEquity(vault, { ts: Date.now(), equityUsd: v.equity, floorUsd: v.lossFloor });
   if (s.mode === 'off') return void decisions.push({ sym: '-', action: 'hold', reason: 'The agent is switched off' });
 
-  const v = await readVault(vault);
   if (v.paused) return void decisions.push({ sym: '-', action: 'hold', reason: 'Trading is paused by the owner' });
   if (!isAddressEqual(v.operator, (await agentOf(vault)).account.address)) return void decisions.push({ sym: '-', action: 'hold', reason: 'This vault uses a different agent wallet' });
   if ((await publicClient.getBalance({ address: v.operator })) === 0n) return void decisions.push({ sym: '-', action: 'hold', reason: 'Out of gas: top up the agent wallet' });

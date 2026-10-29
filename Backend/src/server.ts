@@ -7,7 +7,7 @@ import { readVault } from './market.ts';
 import { netDepositsUsd } from './pnl.ts';
 import { agentStatus, manualTrade, withdrawAgentGas } from './agent.ts';
 import { HttpError, login, newNonce, ownerOf } from './auth.ts';
-import { loadStrategy, readLog, saveStrategy, validateStrategy } from './store.ts';
+import { loadStrategy, readEquity, readLog, saveStrategy, validateStrategy } from './store.ts';
 
 export async function getState(vault: Address) {
   const [v, net] = await Promise.all([readVault(vault), netDepositsUsd(vault)]);
@@ -52,6 +52,7 @@ type Ctx = { req: IncomingMessage; url: URL; body: any };
 const routes: Record<string, (c: Ctx) => Promise<unknown>> = {
   'GET /state': async ({ url }) => getState(await readTarget(url)),
   'GET /log': async ({ url }) => readLog(await readTarget(url)),
+  'GET /equity': async ({ url }) => readEquity(await readTarget(url)),
   'GET /nonce': async () => newNonce(),
   // The agent wallet a new vault for `owner` should use. Addresses are public; the key never leaves the backend.
   'GET /agent': async ({ url }) => {

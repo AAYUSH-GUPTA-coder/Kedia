@@ -3,13 +3,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { useChainId, useConnect, useConnection, useConnectors, useDisconnect, useSwitchChain } from "wagmi";
 import { hashkey } from "wagmi/chains";
-import { api, pct, usd, type LogEntry, type State } from "@/lib/api";
-import { DEMO_VAULT, explorerAddr } from "@/lib/config";
+import { api, pct, usd, type EquityPoint, type LogEntry, type State } from "@/lib/api";
+import { DEMO_VAULT, explorerAddr, FORK } from "@/lib/config";
 import { blocked } from "@/lib/protection";
 import { useMyVault } from "@/lib/useMyVault";
 import { Chat } from "./Chat";
 import { CreateVault } from "./CreateVault";
 import { Decisions } from "./Decisions";
+import { EquityChart } from "./EquityChart";
+import { GuardrailDemo } from "./GuardrailDemo";
 import { PolicyPanel } from "./PolicyPanel";
 import { Positions } from "./Positions";
 import { TradeLog } from "./TradeLog";
@@ -157,7 +159,7 @@ function Protected({ s, log }: { s: State; log: LogEntry[] }) {
   );
 }
 
-function Summary({ s, log, mine }: { s: State; log: LogEntry[]; mine: boolean }) {
+function Summary({ s, log, equity, mine }: { s: State; log: LogEntry[]; equity: EquityPoint[]; mine: boolean }) {
   const { pnlUsd, netDepositsUsd, dayChangePct } = s.pnl;
   const sign = (x: number) => (x >= 0 ? "+" : "−");
   return (
@@ -192,6 +194,10 @@ function Summary({ s, log, mine }: { s: State; log: LogEntry[]; mine: boolean })
           <StopLoss s={s} />
         </div>
       </div>
+      <div className="border-t border-line p-4 sm:px-6">
+        <span className={label}>Vault value over time</span>
+        <div className="mt-3"><EquityChart points={equity} log={log} /></div>
+      </div>
     </section>
   );
 }
@@ -203,6 +209,7 @@ export function Dashboard() {
   const target = mine.vault ?? DEMO_VAULT;
   const state = useQuery({ queryKey: ["state", target], queryFn: () => api.state(target), refetchInterval: 5000 });
   const log = useQuery({ queryKey: ["log", target], queryFn: () => api.log(target), refetchInterval: 5000 });
+  const equity = useQuery({ queryKey: ["equity", target], queryFn: () => api.equity(target), refetchInterval: 30_000 });
   const s = state.data;
   const refresh = () => { void state.refetch(); void log.refetch(); };
   const isOwner = !!s && !!address && address.toLowerCase() === s.vault.owner.toLowerCase();
@@ -214,6 +221,7 @@ export function Dashboard() {
           <div className="flex min-w-0 items-center gap-3">
             <Mark />
             <h1 className="font-semibold tracking-tight">Kedia</h1>
+            <span title={FORK ? "A local copy of HSK Chain mainnet with test funds" : "HSK Chain mainnet, real funds"}><Tag tone={FORK ? "warn" : "good"}>{FORK ? "Local fork" : "HSK Mainnet"}</Tag></span>
             <p className="hidden truncate text-sm text-faint md:block">An AI agent trading on HSKSwap inside limits the vault enforces on-chain.</p>
           </div>
           <Wallet owner={s?.vault.owner} />
@@ -235,7 +243,7 @@ export function Dashboard() {
 
         {s && (
           <>
-            <Summary s={s} log={log.data ?? []} mine={!!mine.vault} />
+            <Summary s={s} log={log.data ?? []} equity={equity.data ?? []} mine={!!mine.vault} />
             <div className="grid gap-4 lg:grid-cols-12">
               <div className="min-w-0 space-y-4 lg:col-span-8">
                 <Positions s={s} />
@@ -243,6 +251,7 @@ export function Dashboard() {
                 <TradeLog log={log.data ?? []} />
               </div>
               <aside className="min-w-0 space-y-4 lg:col-span-4">
+                <GuardrailDemo s={s} isOwner={isOwner} refresh={refresh} />
                 <Chat s={s} isOwner={isOwner} needsVault={mine.checked && !mine.vault} refresh={refresh} />
                 <PolicyPanel s={s} isOwner={isOwner} refresh={refresh} />
               </aside>

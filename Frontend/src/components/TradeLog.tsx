@@ -1,5 +1,5 @@
 import type { LogEntry } from "@/lib/api";
-import { fmtError, usd } from "@/lib/api";
+import { amount, fmtError, usd } from "@/lib/api";
 import { Panel, Tag, TxLink } from "./ui";
 
 const KIND = {
@@ -15,12 +15,12 @@ export function TradeLog({ log }: { log: LogEntry[] }) {
         {log.map((e, i) => {
           const [text, tone] = KIND[e.kind];
           return (
-            <li key={i} className="grid gap-x-3 gap-y-2 px-4 py-3 text-sm sm:grid-cols-[5.5rem_minmax(0,1fr)_auto]">
+            <li key={i} className={`grid gap-x-3 gap-y-2 px-4 py-3 text-sm sm:grid-cols-[5.5rem_minmax(0,1fr)_auto] ${e.kind === "rejected" ? "bg-down/5 shadow-[inset_2px_0_0_var(--color-down)]" : ""}`}>
               <span className="flex items-center justify-between gap-3 sm:block sm:pt-0.5"><Tag tone={tone}>{text}</Tag><span className="font-mono text-xs text-muted tabular-nums sm:hidden">{new Date(e.ts).toLocaleTimeString()}</span></span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
                   <span className="font-medium capitalize">{e.side} {e.sym}</span>
-                  <span className="font-mono text-xs text-muted tabular-nums">{Number(e.amountIn).toPrecision(5)} {e.side === "buy" ? "USDT" : e.sym} in</span>
+                  <span className="font-mono text-xs text-muted tabular-nums">{amount(Number(e.amountIn), e.side === "buy" ? "USDT" : e.sym)} {e.side === "buy" ? "USDT" : e.sym} in</span>
                   {e.usdIn !== undefined && <span className="font-mono text-xs text-muted tabular-nums">{usd(e.usdIn)} → {usd(e.usdOut ?? 0)}</span>}
                 </div>
                 {e.error && <p className="mt-1 font-mono text-xs text-down">{fmtError(e.error)}</p>}

@@ -1,5 +1,5 @@
 import type { State } from "@/lib/api";
-import { num, usd } from "@/lib/api";
+import { amount, num, usd } from "@/lib/api";
 import { Dot, label, Panel } from "./ui";
 
 export function Positions({ s }: { s: State }) {
@@ -25,7 +25,7 @@ export function Positions({ s }: { s: State }) {
               return (
                 <tr key={p.sym} className="transition-colors hover:bg-raised/50">
                   <td className="py-3 pl-4 font-sans font-medium">{p.sym}</td>
-                  <td className="py-3 pl-4 text-right">{num(p.balance)}</td>
+                  <td className="py-3 pl-4 text-right">{amount(p.balance, p.sym)}</td>
                   <td className="py-3 pl-4 text-right text-muted">{p.price ? `$${num(p.price, p.price < 1 ? 5 : 2)}` : "–"}</td>
                   <td className="py-3 pl-4 text-right">{usd(p.usd)}</td>
                   <td className="hidden py-3 pl-6 sm:table-cell">

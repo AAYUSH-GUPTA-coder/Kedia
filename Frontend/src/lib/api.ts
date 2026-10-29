@@ -15,6 +15,7 @@ export type LogEntry = {
   ts: number; kind: "trade" | "rejected" | "simulated"; source: "agent" | "chat" | "demo"; sym: string; side: "buy" | "sell";
   amountIn: string; amountOut?: string; usdIn?: number; usdOut?: number; txHash?: string; error?: { name: string; args: string[] }; reason: string;
 };
+export type EquityPoint = { ts: number; equityUsd: number; floorUsd: number };
 export type PolicyProposal = Policy & { allowedTokens: Sym[]; rationale: string };
 export type StrategyProposal = Partial<Strategy> & { rationale: string };
 export type ChatTurn = { role: "user" | "assistant"; content: string };
@@ -37,6 +38,7 @@ async function call<T>(path: string, body?: unknown, auth = false): Promise<T> {
 export const api = {
   state: (vault: string) => call<State>(`/state?vault=${vault}`),
   log: (vault: string) => call<LogEntry[]>(`/log?vault=${vault}`),
+  equity: (vault: string) => call<EquityPoint[]>(`/equity?vault=${vault}`),
   chat: (messages: ChatTurn[]) => call<ChatResult>("/chat", { messages }, true),
   strategy: (patch: Partial<Strategy>) => call<Strategy>("/strategy", patch, true),
   trade: (t: { symbol: Sym; side: "buy" | "sell"; amount: number; unit: "usd" | "asset" }) => call<LogEntry>("/trade", t, true),
@@ -48,6 +50,10 @@ export const api = {
 export const usd = (x: number) => `$${x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 export const pct = (bps: number) => `${(bps / 100).toFixed(bps % 100 ? 2 : 0)}%`;
 export const num = (x: number, d = 4) => x.toLocaleString("en-US", { maximumFractionDigits: d });
+/** Token amounts in one style: USDT to the cent, other tokens to 2 decimals from 1 up and 4 significant digits below 1. */
+export const amount = (x: number, sym: string) =>
+  sym === "USDT" ? x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : x.toLocaleString("en-US", x >= 1 ? { maximumFractionDigits: 2 } : { maximumSignificantDigits: 4 });
 
 /** Vault errors carry 8-decimal USD values; show them as dollars. */
 const USD_ERRORS: Record<string, string[]> = {

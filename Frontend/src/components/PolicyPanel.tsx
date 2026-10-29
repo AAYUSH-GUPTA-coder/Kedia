@@ -4,7 +4,7 @@ import { useState } from "react";
 import { erc20Abi, parseUnits, type Address } from "viem";
 import { writeContract } from "wagmi/actions";
 import { cfg, SYMS, vaultAt, wagmiConfig, type Sym } from "@/lib/config";
-import { api, fmtError, pct, usd, type State } from "@/lib/api";
+import { pct, usd, type State } from "@/lib/api";
 import { parsePolicyForm, proposalCalls, toPolicyForm, type PolicyForm } from "@/lib/policy";
 import { useVaultTx } from "@/lib/useVaultTx";
 import { Button, Field, field, Panel, Tag, TxResult } from "./ui";
@@ -15,7 +15,6 @@ export function PolicyPanel({ s, isOwner, refresh }: { s: State; isOwner: boolea
   const tx = useVaultTx(refresh);
   const [sym, setSym] = useState<Sym>("USDT");
   const [amount, setAmount] = useState("");
-  const [breach, setBreach] = useState<{ busy: boolean; text?: string }>({ busy: false });
   const [form, setForm] = useState<PolicyForm | null>(null);
   const policyTx = useVaultTx(refresh);
   const allowedNow = s.vault.positions.filter((x) => x.allowed).map((x) => x.sym);
@@ -40,17 +39,6 @@ export function PolicyPanel({ s, isOwner, refresh }: { s: State; isOwner: boolea
     const tokens = s.vault.positions.map((x) => ({ sym: x.sym, address: x.address as Address, allowed: x.allowed, feed: x.feed as Address }));
     const calls = proposalCalls(parsed.policy, tokens, cfg.feeds);
     void policyTx.send("Update policy", () => writeContract(wagmiConfig, { ...vault, functionName: "multicall", args: [calls] })).then((ok) => ok && setForm(null));
-  }
-
-  async function tryBreach() {
-    setBreach({ busy: true });
-    try {
-      const r = await api.trade({ symbol: "WHSK", side: "buy", amount: p.maxTradeUsd * 10, unit: "usd" });
-      setBreach({ busy: false, text: r.error ? `Vault rejected it on-chain: ${fmtError(r.error)}` : `Executed?! ${r.kind}` });
-    } catch (e) {
-      setBreach({ busy: false, text: e instanceof Error ? e.message : String(e) });
-    }
-    refresh();
   }
 
   return (
@@ -103,13 +91,6 @@ export function PolicyPanel({ s, isOwner, refresh }: { s: State; isOwner: boolea
       )}
       {!form && <p className="mt-4 border-t border-line pt-3 text-xs leading-relaxed text-faint">Enforced by the vault contract. {isOwner ? "Edit it here or ask in chat." : "Only the owner wallet can change it; connect it to edit. The agent's key cannot."}</p>}
       <TxResult result={policyTx.result} />
-
-      {isOwner && <div className="-mx-4 mt-4 border-t border-line px-4 pt-4">
-        <h3 className="text-sm font-semibold">Guardrail demo</h3>
-        <p className="mt-1 text-xs leading-relaxed text-muted">Asks the agent to buy {usd(p.maxTradeUsd * 10)} of WHSK, 10× the limit. The transaction is sent anyway so the revert is visible on-chain.</p>
-        <div className="mt-3"><Button variant="danger" onClick={tryBreach} disabled={breach.busy}>{breach.busy ? "Sending…" : "Try to trade 10× the limit"}</Button></div>
-        {breach.text && <p className="mt-2 font-mono text-xs text-down">{breach.text}</p>}
-      </div>}
 
       {isOwner && (
         <div className="-mx-4 mt-4 space-y-3 border-t border-line px-4 pt-4">

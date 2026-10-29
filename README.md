@@ -341,7 +341,7 @@ The demo runs on a local mainnet fork with fake money (see [Demo on a local main
 3. The dashboard shows positions, equity, P&L, today's stop-loss floor, the agent's wallet and gas, and its live reasoning for each token.
 4. Let the agent trade. Each trade appears in the log with an explorer link. Press **Edit** in the Agent panel to change its strategy, trade size or edge.
 5. In chat, say "halve my risk and stop trading WETH". Review the before and after table, then press **Sign & apply**. WETH shows as blocked.
-6. Say "buy $100 of WHSK right now", or press **Try to trade 10× the limit**. The vault reverts on-chain with `TradeTooLarge`, and the explorer link shows the failed transaction.
+6. Say "buy $100 of WHSK right now", or press **Try to buy** in the **Try to break the rules** card, which asks for 10× the max trade. The vault reverts on-chain with `TradeTooLarge`, and the explorer link shows the failed transaction.
 
 ## Project layout
 
