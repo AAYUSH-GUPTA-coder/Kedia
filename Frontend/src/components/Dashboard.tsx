@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useChainId, useConnect, useConnection, useConnectors, useDisconnect, useSwitchChain } from "wagmi";
 import { hashkey } from "wagmi/chains";
@@ -89,6 +90,34 @@ function Hero() {
           ))}
         </ol>
       </div>
+    </section>
+  );
+}
+
+const HIDE_STRIP = "kedia:hide-intro-strip";
+
+/** The hero's message in one row for connected users, so it stays in every screenshot without pushing the vault down. */
+function HeroStrip() {
+  // Starts shown and reads the saved choice after mount, so server and client render the same HTML.
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    try { setHidden(localStorage.getItem(HIDE_STRIP) === "1"); } catch { /* storage blocked: keep showing it */ }
+  }, []);
+  if (hidden) return null;
+  const hide = () => {
+    setHidden(true);
+    try { localStorage.setItem(HIDE_STRIP, "1"); } catch { /* storage blocked: hidden for this visit only */ }
+  };
+  return (
+    <section aria-label="About Kedia" className="relative flex flex-wrap items-center gap-x-6 gap-y-2 overflow-hidden rounded-xl border border-line bg-panel py-3 pr-3 pl-5">
+      <div aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-accent" />
+      <p className="text-sm font-semibold tracking-tight">An AI trader that <span className="text-accent">can&apos;t break your rules.</span></p>
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+        {PILLARS.map(([title], i) => (
+          <li key={title} className="inline-flex items-center gap-1.5"><span className="font-mono text-accent tabular-nums">0{i + 1}</span>{title}</li>
+        ))}
+      </ul>
+      <button type="button" onClick={hide} aria-label="Hide this introduction" className="ml-auto rounded px-2 py-1 text-xs text-faint transition-colors hover:text-fg focus-visible:outline-2 focus-visible:outline-accent">Hide</button>
     </section>
   );
 }
@@ -229,7 +258,7 @@ export function Dashboard() {
       </header>
 
       <main className="mx-auto w-full max-w-7xl space-y-4 px-4 py-6 sm:px-6">
-        {!address && <Hero />}
+        {address ? <HeroStrip /> : <Hero />}
         {mine.checked && !mine.vault && <CreateVault onCreated={() => void mine.refetch()} />}
 
         {state.error && <p className="rounded-lg border border-down/30 bg-down/10 px-4 py-3 text-sm text-down">Backend unreachable: {state.error.message}. Start it with <code className="font-mono">pnpm backend</code>.</p>}
