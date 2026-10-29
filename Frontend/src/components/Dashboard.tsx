@@ -273,10 +273,13 @@ export function Dashboard() {
           <>
             <Summary s={s} log={log.data ?? []} equity={equity.data ?? []} mine={!!mine.vault} />
             <div className="grid gap-4 lg:grid-cols-12">
-              <div className="min-w-0 space-y-4 lg:col-span-8">
+              <div className="min-w-0 space-y-4 lg:col-span-8 lg:flex lg:flex-col lg:gap-4 lg:space-y-0">
                 <Positions s={s} />
                 <Decisions s={s} isOwner={isOwner} refresh={refresh} />
-                <TradeLog log={log.data ?? []} />
+                {/* On wide screens the log fills down to the bottom of the right column and scrolls inside, so both columns end level. */}
+                <div className="lg:relative lg:min-h-80 lg:flex-1">
+                  <div className="lg:absolute lg:inset-0"><TradeLog log={log.data ?? []} /></div>
+                </div>
               </div>
               <aside className="min-w-0 space-y-4 lg:col-span-4">
                 <GuardrailDemo s={s} isOwner={isOwner} refresh={refresh} />

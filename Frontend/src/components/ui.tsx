@@ -5,14 +5,14 @@ import { explorerTx } from "@/lib/config";
 export const label = "font-mono text-2xs uppercase tracking-label text-faint";
 
 /** A contained section: header bar with title and optional right slot, padded body unless `flush`. */
-export function Panel({ title, right, flush, children }: { title: string; right?: ReactNode; flush?: boolean; children: ReactNode }) {
+export function Panel({ title, right, flush, fill, children }: { title: string; right?: ReactNode; flush?: boolean; fill?: boolean; children: ReactNode }) {
   return (
-    <section className="overflow-hidden rounded-xl border border-line bg-panel">
+    <section className={`overflow-hidden rounded-xl border border-line bg-panel ${fill ? "flex h-full flex-col" : ""}`}>
       <header className="flex min-h-12 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-line px-4 py-2">
         <h2 className="text-sm font-medium tracking-tight">{title}</h2>
         {right}
       </header>
-      <div className={flush ? "" : "p-4"}>{children}</div>
+      <div className={`${flush ? "" : "p-4"} ${fill ? "min-h-0 flex-1" : ""}`}>{children}</div>
     </section>
   );
 }

@@ -10,8 +10,8 @@ const KIND = {
 
 export function TradeLog({ log }: { log: LogEntry[] }) {
   return (
-    <Panel flush title="Trades and rejections" right={log.length ? <span className="text-xs text-faint">{log.length} total · newest first</span> : null}>
-      <ul className="max-h-[32rem] divide-y divide-line overflow-y-auto">
+    <Panel flush fill title="Trades and rejections" right={log.length ? <span className="text-xs text-faint">{log.length} total · newest first</span> : null}>
+      <ul className="max-h-[32rem] divide-y divide-line overflow-y-auto lg:h-full lg:max-h-none">
         {log.map((e, i) => {
           const [text, tone] = KIND[e.kind];
           return (
