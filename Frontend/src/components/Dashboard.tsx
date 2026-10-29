@@ -3,8 +3,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useChainId, useConnect, useConnection, useConnectors, useDisconnect, useSwitchChain } from "wagmi";
 import { hashkey } from "wagmi/chains";
-import { api, pct, usd, type State } from "@/lib/api";
+import { api, pct, usd, type LogEntry, type State } from "@/lib/api";
 import { DEMO_VAULT, explorerAddr } from "@/lib/config";
+import { blocked } from "@/lib/protection";
 import { useMyVault } from "@/lib/useMyVault";
 import { Chat } from "./Chat";
 import { CreateVault } from "./CreateVault";
@@ -133,7 +134,30 @@ function StopLoss({ s }: { s: State }) {
   );
 }
 
-function Summary({ s, mine }: { s: State; mine: boolean }) {
+/** What the vault has refused so far, so the guardrails' value is visible next to P&L. */
+function Protected({ s, log }: { s: State; log: LogEntry[] }) {
+  const b = blocked(log, (sym) => s.vault.positions.find((p) => p.sym === sym)?.price ?? 0);
+  // Max trade size, daily loss cap, price band, oracle freshness and the token list, plus the cooldown when it is on.
+  const rules = 5 + (s.vault.policy.cooldownSeconds > 0 ? 1 : 0);
+  return (
+    <>
+      <span className={label}>Protection</span>
+      {b.count ? (
+        <>
+          <div className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-accent">{usd(b.usd)}</div>
+          <p className="mt-2 text-xs text-faint">Blocked: {b.count} rule-breaking trade{b.count === 1 ? "" : "s"} refused on-chain</p>
+        </>
+      ) : (
+        <>
+          <div className="mt-2 text-2xl font-semibold tracking-tight">{rules} rules</div>
+          <p className="mt-2 text-xs text-faint">Checked on-chain on every trade. Nothing has broken one yet.</p>
+        </>
+      )}
+    </>
+  );
+}
+
+function Summary({ s, log, mine }: { s: State; log: LogEntry[]; mine: boolean }) {
   const { pnlUsd, netDepositsUsd, dayChangePct } = s.pnl;
   const sign = (x: number) => (x >= 0 ? "+" : "−");
   return (
@@ -149,19 +173,22 @@ function Summary({ s, mine }: { s: State; mine: boolean }) {
         <Status s={s} />
       </header>
       <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-12 lg:gap-0">
-        <div className="lg:col-span-4 lg:pr-6">
+        <div className="lg:col-span-3 lg:pr-6">
           <span className={label}>Equity</span>
           <div className="mt-2 text-4xl font-semibold tabular-nums tracking-tight sm:text-5xl">{usd(s.vault.equity)}</div>
           <p className="mt-2 text-xs text-faint">Net deposits <span className="font-mono text-muted">{usd(netDepositsUsd)}</span> · marked at oracle prices</p>
         </div>
         <div className="border-t border-line pt-6 lg:col-span-3 lg:border-t-0 lg:border-l lg:px-6 lg:pt-0">
+          <Protected s={s} log={log} />
+        </div>
+        <div className="border-t border-line pt-6 lg:col-span-2 lg:border-t-0 lg:border-l lg:px-6 lg:pt-0">
           <span className={label}>P&amp;L</span>
           <div className={`mt-2 text-2xl font-semibold tabular-nums tracking-tight ${pnlUsd >= 0 ? "text-up" : "text-down"}`}>{sign(pnlUsd)}{usd(Math.abs(pnlUsd))}</div>
           <p className="mt-2 text-xs text-faint">
             {s.vault.dayStartEquity ? <>Today <span className={`font-mono ${dayChangePct >= 0 ? "text-up" : "text-down"}`}>{sign(dayChangePct)}{Math.abs(dayChangePct).toFixed(2)}%</span></> : "No trades today"}
           </p>
         </div>
-        <div className="border-t border-line pt-6 lg:col-span-5 lg:border-t-0 lg:border-l lg:pl-6 lg:pt-0">
+        <div className="border-t border-line pt-6 lg:col-span-4 lg:border-t-0 lg:border-l lg:pl-6 lg:pt-0">
           <StopLoss s={s} />
         </div>
       </div>
@@ -208,7 +235,7 @@ export function Dashboard() {
 
         {s && (
           <>
-            <Summary s={s} mine={!!mine.vault} />
+            <Summary s={s} log={log.data ?? []} mine={!!mine.vault} />
             <div className="grid gap-4 lg:grid-cols-12">
               <div className="min-w-0 space-y-4 lg:col-span-8">
                 <Positions s={s} />
