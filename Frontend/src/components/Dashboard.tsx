@@ -24,14 +24,18 @@ function Mark() {
   );
 }
 
-function Wallet({ owner }: { owner?: string }) {
-  const { address, isConnected } = useConnection();
+function ConnectButton() {
   const connectors = useConnectors();
   const connect = useConnect();
+  return <Button variant="primary" onClick={() => connectors[0] && connect.mutate({ connector: connectors[0] })}>Connect wallet</Button>;
+}
+
+function Wallet({ owner }: { owner?: string }) {
+  const { address, isConnected } = useConnection();
   const disconnect = useDisconnect();
   const chainId = useChainId();
   const switchChain = useSwitchChain();
-  if (!isConnected) return <Button variant="primary" onClick={() => connectors[0] && connect.mutate({ connector: connectors[0] })}>Connect wallet</Button>;
+  if (!isConnected) return <ConnectButton />;
   const isOwner = owner && address?.toLowerCase() === owner.toLowerCase();
   return (
     <div className="flex items-center gap-2">
@@ -42,6 +46,47 @@ function Wallet({ owner }: { owner?: string }) {
       </span>
       <Button onClick={() => disconnect.mutate()}>Disconnect</Button>
     </div>
+  );
+}
+
+const PILLARS: [string, string][] = [
+  ["Your vault", "Your money sits in a contract only your wallet owns. Only you can deposit, withdraw or pause."],
+  ["Your rules, on-chain", "Max trade size, a daily stop-loss, allowed tokens and a price check. A trade that breaks one is reverted, not filled."],
+  ["Its own agent", "A dedicated agent wallet trades for you on HSKSwap. It can never withdraw, and you steer it in plain English."],
+];
+
+/** First thing a visitor without a wallet sees: the idea, how it works, and how to start. */
+function Hero() {
+  return (
+    <section aria-labelledby="hero-title" className="relative overflow-hidden rounded-xl border border-line bg-panel">
+      <div aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-accent" />
+      <div className="grid gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-12">
+        <div className="flex flex-col justify-center">
+          <div><Tag tone="accent">AI agent trading on HSK Chain</Tag></div>
+          <h2 id="hero-title" className="mt-4 text-3xl font-semibold leading-tight tracking-tight text-balance sm:text-4xl">
+            An AI trader that <span className="text-accent">can&apos;t break your rules.</span>
+          </h2>
+          <p className="mt-4 max-w-xl text-pretty text-muted">
+            Letting an AI trade usually means handing it your wallet key, and hoping a prompt keeps it in line. Kedia keeps your money in your own vault and lets the agent trade it only inside limits the smart contract enforces on every trade.
+          </p>
+          <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <ConnectButton />
+            <span className="text-sm text-faint">Then create your vault in one transaction. Below is a live demo vault, read-only.</span>
+          </div>
+        </div>
+        <ol className="grid content-center gap-3">
+          {PILLARS.map(([title, body], i) => (
+            <li key={title} className="flex gap-4 rounded-lg border border-line bg-canvas/40 p-4">
+              <span className="font-mono text-sm text-accent tabular-nums">0{i + 1}</span>
+              <div>
+                <h3 className="text-sm font-medium">{title}</h3>
+                <p className="mt-1 text-sm leading-relaxed text-muted">{body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
   );
 }
 
@@ -149,11 +194,7 @@ export function Dashboard() {
       </header>
 
       <main className="mx-auto w-full max-w-7xl space-y-4 px-4 py-6 sm:px-6">
-        {!address && (
-          <p className="flex items-center gap-2.5 rounded-lg border border-line bg-panel px-4 py-3 text-sm text-muted">
-            <Dot tone="muted" />You are looking at the demo vault. Connect a wallet to create your own vault and let the agent trade it within your rules.
-          </p>
-        )}
+        {!address && <Hero />}
         {mine.checked && !mine.vault && <CreateVault onCreated={() => void mine.refetch()} />}
 
         {state.error && <p className="rounded-lg border border-down/30 bg-down/10 px-4 py-3 text-sm text-down">Backend unreachable: {state.error.message}. Start it with <code className="font-mono">pnpm backend</code>.</p>}
