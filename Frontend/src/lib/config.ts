@@ -18,11 +18,12 @@ export const explorerAddr = (a: string) => `${addresses.explorer}/address/${a}`;
 export type Sym = keyof typeof addresses.tokens;
 export const SYMS = Object.keys(addresses.tokens) as Sym[];
 
-// NEXT_PUBLIC_RPC_URL lets the UI talk to a local anvil fork during development.
+// On the fork, always the fork file's own RPC, so a mainnet NEXT_PUBLIC_RPC_URL in .env can never mix the two.
+const RPC_URL = process.env.NEXT_PUBLIC_KEDIA_NETWORK === "fork" ? addresses.rpcUrl : (process.env.NEXT_PUBLIC_RPC_URL ?? addresses.rpcUrl);
 export const wagmiConfig = createConfig({
   chains: [hashkey],
   connectors: [injected()],
-  transports: { [hashkey.id]: http(process.env.NEXT_PUBLIC_RPC_URL ?? addresses.rpcUrl) },
+  transports: { [hashkey.id]: http(RPC_URL) },
   ssr: true,
 });
 
