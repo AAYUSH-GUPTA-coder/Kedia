@@ -7,7 +7,6 @@ import type { Address } from "viem";
 
 export const cfg = addresses;
 export const API = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8787";
-export const FORK = process.env.NEXT_PUBLIC_KEDIA_NETWORK === "fork";
 export const vaultAt = (address: Address) => ({ address, abi: guardedVaultAbi }) as const;
 /** Creates one vault per wallet and records which wallet owns which vault. */
 export const factory = { address: addresses.factory as Address, abi: vaultFactoryAbi } as const;

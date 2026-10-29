@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useChainId, useConnect, useConnection, useConnectors, useDisconnect, useSwitchChain } from "wagmi";
 import { hashkey } from "wagmi/chains";
 import { api, pct, usd, type EquityPoint, type LogEntry, type State } from "@/lib/api";
-import { DEMO_VAULT, explorerAddr, FORK } from "@/lib/config";
+import { DEMO_VAULT, explorerAddr } from "@/lib/config";
 import { blocked } from "@/lib/protection";
 import { useMyVault } from "@/lib/useMyVault";
 import { Chat } from "./Chat";
@@ -250,7 +250,6 @@ export function Dashboard() {
           <div className="flex min-w-0 items-center gap-3">
             <Mark />
             <h1 className="font-semibold tracking-tight">Kedia</h1>
-            <span title={FORK ? "A local copy of HSK Chain mainnet with test funds" : "HSK Chain mainnet, real funds"}><Tag tone={FORK ? "warn" : "good"}>{FORK ? "Local fork" : "HSK Mainnet"}</Tag></span>
             <p className="hidden truncate text-sm text-faint md:block">An AI agent trading on HSKSwap inside limits the vault enforces on-chain.</p>
           </div>
           <Wallet owner={s?.vault.owner} />
