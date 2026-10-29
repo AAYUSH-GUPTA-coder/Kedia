@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/png/kedia-lockup-dark-1200w.png">
+    <img src="brand/png/kedia-lockup-light-1200w.png" alt="Kedia" width="320">
+  </picture>
+</p>
+
 # Kedia
 
 **An AI trading agent you can hand your money to, because it cannot break your rules.**
@@ -352,6 +359,7 @@ Backend/         Node 24 + viem: market data, strategies, agent loop, HTTP API
 AI/              Chat: Claude Sonnet 5.5 via Hopscotch Labs, with tools get_state, propose_policy,
                  propose_strategy, attempt_trade
 Frontend/        Next.js + wagmi: dashboard, create vault, agent settings and gas, trade log, chat, sign-to-apply, guardrail demo
+brand/           Logo pack: SVG and PNG marks and lockups, favicons, the link-preview image and the DoraHacks logo
 ```
 
 ## Getting started
