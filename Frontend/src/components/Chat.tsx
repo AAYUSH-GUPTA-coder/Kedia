@@ -130,6 +130,17 @@ function PolicyDiff({ s, p, isOwner, refresh }: { s: State; p: PolicyProposal; i
   );
 }
 
+/** Plain names and units for the agent settings a strategy proposal can change. */
+const STRATEGY_ROWS: Record<string, [string, (v: unknown) => string]> = {
+  mode: ["Strategy", (v) => ({ meanReversion: "Mean reversion", momentum: "Momentum", off: "Off" })[v as string] ?? String(v)],
+  symbols: ["Tokens it trades", (v) => (v as string[]).join(", ") || "none"],
+  tradeUsd: ["Per trade", (v) => usd(Number(v))],
+  edgeBps: ["Price gap needed", (v) => pct(Number(v))],
+  slippageBps: ["Max slippage", (v) => pct(Number(v))],
+  loopSeconds: ["Checks every", (v) => `${v}s`],
+  minGapSeconds: ["Wait between trades", (v) => `${Number(v) / 60} min`],
+};
+
 function StrategyDiff({ s, p, refresh }: { s: State; p: StrategyProposal; refresh: () => void }) {
   const [done, setDone] = useState<string | null>(null);
   const { rationale, ...patch } = p;
@@ -138,7 +149,10 @@ function StrategyDiff({ s, p, refresh }: { s: State; p: StrategyProposal; refres
     <div className="mt-3 rounded-lg border border-line-strong bg-raised/50 p-3">
       <div className="font-mono text-2xs font-medium uppercase tracking-label text-muted">Proposed agent strategy</div>
       <table className="mt-2 w-full text-xs"><tbody>
-        {Object.entries(patch).map(([k, v]) => <Row key={k} k={k} from={String(cur[k])} to={String(v)} />)}
+        {Object.entries(patch).map(([k, v]) => {
+          const [name, fmt] = STRATEGY_ROWS[k] ?? [k, String];
+          return <Row key={k} k={name} from={fmt(cur[k])} to={fmt(v)} />;
+        })}
       </tbody></table>
       <p className="mt-2 text-xs text-muted">{rationale}</p>
       <div className="mt-2">

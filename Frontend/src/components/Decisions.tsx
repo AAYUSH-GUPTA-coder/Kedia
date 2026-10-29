@@ -4,20 +4,22 @@ import { useState } from "react";
 import { parseEther, type Address } from "viem";
 import { sendTransaction } from "wagmi/actions";
 import type { State, Strategy } from "@/lib/api";
-import { api, num } from "@/lib/api";
+import { api, num, pct } from "@/lib/api";
 import { explorerAddr, SYMS, wagmiConfig } from "@/lib/config";
 import { useVaultTx } from "@/lib/useVaultTx";
 import { Button, Field, field, label, Panel, Tag, TxResult } from "./ui";
 
 const TONE = { buy: "good", sell: "bad", hold: "muted" } as const;
+const ACTION = { buy: "Buy", sell: "Sell", hold: "Wait" };
 const MODE = { meanReversion: "Mean reversion", momentum: "Momentum", off: "Off" };
 const ASSETS = SYMS.filter((x) => x !== "USDT"); // what the agent can buy and sell for USDT
 const gap = (s: number) => (s === 0 ? "Off" : s % 60 ? `${s}s` : `${s / 60} min`);
 
-type Form = { mode: Strategy["mode"]; symbols: Strategy["symbols"]; tradeUsd: string; edgeBps: string; slippageBps: string; loopSeconds: string; minGapMinutes: string };
+// Edge and slippage are edited as percents; the backend stores basis points (100 bps = 1%).
+type Form = { mode: Strategy["mode"]; symbols: Strategy["symbols"]; tradeUsd: string; edgePct: string; slippagePct: string; loopSeconds: string; minGapMinutes: string };
 const toForm = (st: Strategy): Form => ({
-  mode: st.mode, symbols: st.symbols, tradeUsd: String(st.tradeUsd), edgeBps: String(st.edgeBps),
-  slippageBps: String(st.slippageBps), loopSeconds: String(st.loopSeconds), minGapMinutes: String(st.minGapSeconds / 60),
+  mode: st.mode, symbols: st.symbols, tradeUsd: String(st.tradeUsd), edgePct: String(st.edgeBps / 100),
+  slippagePct: String(st.slippageBps / 100), loopSeconds: String(st.loopSeconds), minGapMinutes: String(st.minGapSeconds / 60),
 });
 
 export function Decisions({ s, isOwner, refresh }: { s: State; isOwner: boolean; refresh: () => void }) {
@@ -27,9 +29,9 @@ export function Decisions({ s, isOwner, refresh }: { s: State; isOwner: boolean;
   const [saving, setSaving] = useState<{ busy: boolean; error?: string }>({ busy: false });
   const stats: [string, string][] = [
     ["Per trade", `$${st.tradeUsd}`],
-    ["Edge", `${st.edgeBps} bps`],
+    ["Gap needed", pct(st.edgeBps)],
     ["Checks every", `${st.loopSeconds}s`],
-    ["Min gap", gap(st.minGapSeconds)],
+    ["Trade spacing", gap(st.minGapSeconds)],
     ["Gas left", `${a.operatorGasHsk.toFixed(3)} HSK`],
   ];
 
@@ -41,8 +43,8 @@ export function Decisions({ s, isOwner, refresh }: { s: State; isOwner: boolean;
     setSaving({ busy: true });
     try {
       await api.strategy({
-        mode: f.mode, symbols: f.symbols, tradeUsd: Number(f.tradeUsd), edgeBps: Number(f.edgeBps),
-        slippageBps: Number(f.slippageBps), loopSeconds: Number(f.loopSeconds), minGapSeconds: Math.round(Number(f.minGapMinutes) * 60),
+        mode: f.mode, symbols: f.symbols, tradeUsd: Number(f.tradeUsd), edgeBps: Math.round(Number(f.edgePct) * 100),
+        slippageBps: Math.round(Number(f.slippagePct) * 100), loopSeconds: Number(f.loopSeconds), minGapSeconds: Math.round(Number(f.minGapMinutes) * 60),
       });
       setForm(null);
       setSaving({ busy: false });
@@ -85,10 +87,10 @@ export function Decisions({ s, isOwner, refresh }: { s: State; isOwner: boolean;
               </div>
             </fieldset>
             <Field label="Per trade" prefix="$" hint="Capped by the vault's max trade size" value={form.tradeUsd} onChange={edit("tradeUsd")} />
-            <Field label="Edge" suffix="bps" hint="Price gap needed before trading" value={form.edgeBps} onChange={edit("edgeBps")} />
-            <Field label="Slippage" suffix="bps" hint="Worst fill accepted vs the quote" value={form.slippageBps} onChange={edit("slippageBps")} />
+            <Field label="Price gap needed" suffix="%" hint="Trades only when HSKSwap is this far from the market price" value={form.edgePct} onChange={edit("edgePct")} />
+            <Field label="Max slippage" suffix="%" hint="Worst fill it accepts compared with the quote" value={form.slippagePct} onChange={edit("slippagePct")} />
             <Field label="Checks every" suffix="s" value={form.loopSeconds} onChange={edit("loopSeconds")} />
-            <Field label="Min gap" suffix="min" hint="Between the agent's own trades; 0 turns it off" value={form.minGapMinutes} onChange={edit("minGapMinutes")} />
+            <Field label="Wait between trades" suffix="min" hint="Between the agent's own trades; 0 turns it off" value={form.minGapMinutes} onChange={edit("minGapMinutes")} />
           </div>
           {saving.error && <p className="mt-3 text-xs text-down" role="alert">{saving.error}</p>}
           <div className="mt-3 flex gap-2">
@@ -114,12 +116,12 @@ export function Decisions({ s, isOwner, refresh }: { s: State; isOwner: boolean;
         {a.decisions.map((d, i) => (
           <li key={i} className="grid grid-cols-[3.5rem_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5 px-4 py-3 text-sm sm:grid-cols-[3.5rem_3.5rem_minmax(0,1fr)]">
             <span className="font-medium">{d.sym}</span>
-            <span><Tag tone={TONE[d.action]}>{d.action}</Tag></span>
+            <span><Tag tone={TONE[d.action]}>{ACTION[d.action]}</Tag></span>
             <div className="col-span-2 min-w-0 sm:col-span-1">
               <p>{d.reason}</p>
               {d.ref !== undefined && (
                 <p className="mt-1 font-mono text-xs text-faint tabular-nums">
-                  ref {num(d.ref, 5)} · ask {num(d.buy ?? 0, 5)} · bid {num(d.sell ?? 0, 5)} · oracle {num(d.oracle ?? 0, 5)}
+                  Market {num(d.ref, 5)} · HSKSwap buy {num(d.buy ?? 0, 5)} · sell {num(d.sell ?? 0, 5)} · Oracle {num(d.oracle ?? 0, 5)}
                 </p>
               )}
             </div>

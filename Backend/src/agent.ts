@@ -91,12 +91,12 @@ export async function tick(vault: Address): Promise<void> {
 
 async function decide(vault: Address, decisions: Decision[]): Promise<void> {
   const s = loadStrategy(vault);
-  if (s.mode === 'off') return void decisions.push({ sym: '-', action: 'hold', reason: 'agent stopped (mode off)' });
+  if (s.mode === 'off') return void decisions.push({ sym: '-', action: 'hold', reason: 'The agent is switched off' });
 
   const v = await readVault(vault);
-  if (v.paused) return void decisions.push({ sym: '-', action: 'hold', reason: 'vault paused by owner' });
-  if (!isAddressEqual(v.operator, (await agentOf(vault)).account.address)) return void decisions.push({ sym: '-', action: 'hold', reason: 'vault uses a different agent wallet' });
-  if ((await publicClient.getBalance({ address: v.operator })) === 0n) return void decisions.push({ sym: '-', action: 'hold', reason: 'agent wallet has no HSK for gas; top it up' });
+  if (v.paused) return void decisions.push({ sym: '-', action: 'hold', reason: 'Trading is paused by the owner' });
+  if (!isAddressEqual(v.operator, (await agentOf(vault)).account.address)) return void decisions.push({ sym: '-', action: 'hold', reason: 'This vault uses a different agent wallet' });
+  if ((await publicClient.getBalance({ address: v.operator })) === 0n) return void decisions.push({ sym: '-', action: 'hold', reason: 'Out of gas: top up the agent wallet' });
   const cooldownLeft = agentCooldownLeft(readLog(vault), Date.now(), s.minGapSeconds);
   const history = histories.get(vault) ?? { WHSK: [], WETH: [] };
   histories.set(vault, history);
@@ -106,7 +106,7 @@ async function decide(vault: Address, decisions: Decision[]): Promise<void> {
   for (const sym of s.symbols) {
     const pos = v.positions.find((p) => p.sym === sym)!;
     if (!pos.allowed || !pos.price) {
-      decisions.push({ sym, action: 'hold', reason: 'not allowed by vault policy' });
+      decisions.push({ sym, action: 'hold', reason: "Not allowed by the vault's rules" });
       continue;
     }
     const m = await readMarket(sym, usd, pos.price);
@@ -116,12 +116,12 @@ async function decide(vault: Address, decisions: Decision[]): Promise<void> {
     decisions.push(d);
     if (sig.action === 'hold') continue;
     if (cooldownLeft) {
-      d.reason += ` (agent cooldown, ${cooldownLeft}s left)`;
+      d.reason += `. Next trade allowed in ${Math.ceil(cooldownLeft / 60)} min`;
       continue;
     }
     const [amountIn, quoted, have] = sig.action === 'buy' ? [m.buy.usdtIn, m.buy.assetOut, usdt.raw] : [m.sell.assetIn, m.sell.usdtOut, pos.raw];
     if (have < amountIn) {
-      d.reason += ` (not enough ${sig.action === 'buy' ? 'USDT' : sym})`;
+      d.reason += `, but the vault holds less ${sig.action === 'buy' ? 'USDT' : sym} than one trade needs`;
       continue;
     }
     const minOut = (quoted * BigInt(10_000 - s.slippageBps)) / 10_000n;
@@ -152,7 +152,7 @@ export async function manualTrade(vault: Address, sym: Asset, side: 'buy' | 'sel
     }
   }
   // minOut 0: the vault's oracle price band is the slippage guard being demonstrated.
-  return submitSwap({ vault, sym, side, amountIn, minOut: 0n, source, reason: `user asked to ${side} ${label}`, force: true });
+  return submitSwap({ vault, sym, side, amountIn, minOut: 0n, source, reason: `You asked to ${side} ${label}`, force: true });
 }
 
 /** Sends the HSK in `vault`'s agent wallet back to the vault's current owner, keeping enough to pay for this transfer. */
