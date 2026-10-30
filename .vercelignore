@@ -1,0 +1,15 @@
+# Never upload secrets or local-only files when deploying the frontend with the Vercel CLI.
+**/.env
+**/.env.*
+!**/.env.example
+.claude
+Working.md
+Backend/data
+SmartContracts/lib
+SmartContracts/out
+SmartContracts/cache
+SmartContracts/broadcast
+SmartContracts/.env
+ABI/addresses.fork.json
+**/node_modules
+**/.next

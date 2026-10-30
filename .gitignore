@@ -12,3 +12,4 @@ Backend/data/
 ABI/addresses.fork.json
 .DS_Store
 Working.md
+.vercel
