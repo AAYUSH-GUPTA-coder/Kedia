@@ -21,8 +21,6 @@ contract Deploy is Script {
     function run() external {
         string memory path = vm.envOr("ADDRESSES", string("../ABI/addresses.json"));
         string memory cfg = vm.readFile(path);
-        // Same derivation as the backend's agentKey(): one agent wallet per vault creator.
-        address agent = vm.addr(uint256(keccak256(abi.encodePacked(vm.envBytes32("AGENT_MASTER_KEY"), msg.sender))));
         uint256 funding = vm.envOr("AGENT_FUNDING", uint256(5 ether));
         ISupraSValueFeed supra = ISupraSValueFeed(vm.parseJsonAddress(cfg, ".supra.storage"));
         string[3] memory syms = ["USDT", "WHSK", "WETH"];
@@ -30,6 +28,10 @@ contract Deploy is Script {
         address[] memory feeds = new address[](3);
 
         vm.startBroadcast();
+        // The wallet actually signing (from --account or --private-key); msg.sender is a placeholder with --account.
+        (, address deployer,) = vm.readCallers();
+        // Same derivation as the backend's agentKey(): one agent wallet per vault creator.
+        address agent = vm.addr(uint256(keccak256(abi.encodePacked(vm.envBytes32("AGENT_MASTER_KEY"), deployer))));
         for (uint256 i; i < 3; ++i) {
             uint256 pair = vm.parseJsonUint(cfg, string.concat(".supra.pairs.", syms[i]));
             feeds[i] = address(new SupraFeedAdapter(supra, pair, syms[i]));

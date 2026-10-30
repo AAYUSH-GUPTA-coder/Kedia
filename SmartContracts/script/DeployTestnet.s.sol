@@ -42,13 +42,15 @@ contract DeployTestnet is Script {
     function run() external {
         string memory path = vm.envOr("ADDRESSES", string("../ABI/addresses.testnet.json"));
         string memory base = vm.readFile("../ABI/addresses.json"); // same shape, mainnet values replaced below
-        // Same derivation as the backend's agentKey(): one agent wallet per vault creator.
-        address agent = vm.addr(uint256(keccak256(abi.encodePacked(vm.envBytes32("AGENT_MASTER_KEY"), msg.sender))));
         uint256 funding = vm.envOr("AGENT_FUNDING", uint256(0.05 ether));
         uint256 depthUsdt = vm.envOr("POOL_DEPTH_USD", uint256(5000)) * 1e6;
 
         vm.startBroadcast();
-        Deployed memory d = deploy(base, agent, funding, depthUsdt, msg.sender);
+        // The wallet actually signing (from --account or --private-key); msg.sender is a placeholder with --account.
+        (, address deployer,) = vm.readCallers();
+        // Same derivation as the backend's agentKey(): one agent wallet per vault creator.
+        address agent = vm.addr(uint256(keccak256(abi.encodePacked(vm.envBytes32("AGENT_MASTER_KEY"), deployer))));
+        Deployed memory d = deploy(base, agent, funding, depthUsdt, deployer);
         vm.stopBroadcast();
 
         vm.writeFile(path, base);
