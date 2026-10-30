@@ -2,7 +2,8 @@ import { parseAbiItem, type Address } from 'viem';
 import { cfg } from './config.ts';
 import { listVaults, publicClient } from './chain.ts';
 
-const MAX_RANGE = 100_000n; // mainnet.hsk.xyz caps eth_getLogs at 100k blocks
+// eth_getLogs block-range caps: mainnet.hsk.xyz allows 100k blocks, testnet.hsk.xyz only about 5k.
+const MAX_RANGE = cfg.chainId === 133 ? 5_000n : 100_000n;
 const deposited = parseAbiItem('event Deposited(address indexed token, uint256 amount, uint256 usdValue)');
 const withdrawn = parseAbiItem('event Withdrawn(address indexed token, uint256 amount, uint256 usdValue, address to)');
 

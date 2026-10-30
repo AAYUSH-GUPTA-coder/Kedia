@@ -1,0 +1,26 @@
+# Render Blueprint for the Kedia backend (API + trading loop) on HSK testnet.
+# Free plan: sleeps after 15 minutes without requests, so point a free uptime monitor at /health every 5-10 minutes.
+# Its disk is not persistent: trade logs, agent settings and the value chart reset on restart; vaults are on-chain.
+services:
+  - type: web
+    name: kedia-backend
+    runtime: node
+    plan: free
+    branch: main
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    startCommand: pnpm --filter backend start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: KEDIA_NETWORK
+        value: testnet
+      - key: HOST
+        value: 0.0.0.0
+      - key: FRONTEND_ORIGIN
+        value: https://kedia-nu.vercel.app
+      # Secrets: Render asks for these when the Blueprint is created; they never live in the repo.
+      - key: AGENT_MASTER_KEY
+        sync: false
+      - key: HOPSCOTCH_API_KEY
+        sync: false

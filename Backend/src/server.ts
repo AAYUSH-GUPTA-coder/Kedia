@@ -53,6 +53,8 @@ const routes: Record<string, (c: Ctx) => Promise<unknown>> = {
   'GET /state': async ({ url }) => getState(await readTarget(url)),
   'GET /log': async ({ url }) => readLog(await readTarget(url)),
   'GET /equity': async ({ url }) => readEquity(await readTarget(url)),
+  // For the host's health check and the uptime ping that keeps a free instance awake; touches no chain or state.
+  'GET /health': async () => ({ ok: true }),
   'GET /nonce': async () => newNonce(),
   // The agent wallet a new vault for `owner` should use. Addresses are public; the key never leaves the backend.
   'GET /agent': async ({ url }) => {
