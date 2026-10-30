@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { BaseError, type Hash } from "viem";
-import { waitForTransactionReceipt } from "wagmi/actions";
-import { wagmiConfig } from "./config";
+import { getConnection, switchChain, waitForTransactionReceipt } from "wagmi/actions";
+import { chain, wagmiConfig } from "./config";
 
 export type TxStatus = { busy: string | null; result: { ok: boolean; text: string; hash?: string } | null };
 
@@ -16,6 +16,8 @@ export function useVaultTx(onDone?: () => void) {
     setStatus({ busy: label, result: null });
     let hash: Hash | undefined;
     try {
+      // Wallets often sit on another network (e.g. Ethereum); ask to switch first. MetaMask offers to add HSK testnet if missing.
+      if (getConnection(wagmiConfig).chainId !== chain.id) await switchChain(wagmiConfig, { chainId: chain.id });
       for (const step of steps) {
         hash = await step();
         const r = await waitForTransactionReceipt(wagmiConfig, { hash });

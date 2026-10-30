@@ -21,11 +21,11 @@ Entry for the **HSK Chain Horizon Hackathon · Mumbai, Track 1: AI Agent Trading
 | **Solution** | A per-user `GuardedVault` that holds the funds and enforces trade size, daily stop-loss, token allowlist, price sanity and oracle freshness in Solidity. The agent's key can only call `executeSwap`. |
 | **Strategy** | Buys when HSKSwap prices a token below the HashKey Exchange order book, sells when above, with a mean-reversion or momentum signal. Default edge 0.6% after fees and price impact. |
 | **Control** | Chat with Claude Sonnet 5.5: "halve my risk and stop trading WETH" becomes a before/after diff you sign in one transaction. The model never holds a key. |
-| **Chain** | HSK Chain mainnet (id 177), HSKSwap SwapRouter02 + QuoterV2, Supra price oracle, HashKey Exchange public API. |
-| **Status** | Code complete. 31 Foundry tests run against a fork of HSK mainnet with real HSKSwap pools, plus 10 unit tests, all passing. Mainnet deployment is the last step before the deadline; see [Status](#status-implemented-vs-planned). |
+| **Chain** | Live on HSK Chain testnet (id 133), as the organisers allow for the hackathon; mainnet (id 177) follows. HSKSwap SwapRouter02 + QuoterV2 (on testnet, the Uniswap V3 contracts HSKSwap forks), Supra price oracle, HashKey Exchange public API. |
+| **Status** | Live at [kedia-nu.vercel.app](https://kedia-nu.vercel.app) on HSK testnet. 36 Foundry tests (31 on a fork of HSK mainnet with real HSKSwap pools, 5 for the testnet stack) plus 10 unit tests, all passing. See [Status](#status-implemented-vs-planned). |
 | **Code** | [github.com/AAYUSH-GUPTA-coder/Kedia](https://github.com/AAYUSH-GUPTA-coder/Kedia). ~3,300 lines across Solidity, backend, AI and frontend, all written during the hackathon (first commit 25 Oct 2026). |
 | **Demo video** | _Link added at submission._ |
-| **Live dashboard** | _Link added at submission. Visitors without a wallet see the demo vault read-only._ |
+| **Live dashboard** | [kedia-nu.vercel.app](https://kedia-nu.vercel.app) on HSK testnet. Visitors without a wallet see the demo vault read-only. |
 
 ## Why Kedia is different
 
@@ -57,11 +57,28 @@ The track asks for an AI agent that runs the full loop on a DEX without manual i
 
 Kedia runs on **HSK Chain testnet** (chain 133) for the hackathon, as the organisers allow; mainnet comes after judging.
 
-- **Live dashboard:** the hosted link goes here after the testnet deploy.
+- **Live dashboard:** [kedia-nu.vercel.app](https://kedia-nu.vercel.app). Without a wallet you see the demo vault read-only.
 - **Wallet:** connect MetaMask; the dashboard offers to add and switch to HSK Chain Testnet (RPC `https://testnet.hsk.xyz`).
 - **Gas:** claim testnet HSK at the official faucet, [hskchain.net/faucet](https://hskchain.net/faucet).
 - **Tokens:** press **Get test tokens** in the dashboard for 100 test USDT and 1,000 test WHSK (once an hour).
 - **Explorer:** [testnet-explorer.hskchain.net](https://testnet-explorer.hskchain.net). Every trade and rejection links there.
+
+Deployed contracts on HSK testnet (all addresses are in [`ABI/addresses.testnet.json`](ABI/addresses.testnet.json)):
+
+| Contract | Address |
+|---|---|
+| VaultFactory (verified) | [`0x44C9b017010922ca7E5D03Bac6f9D3a6f47d757e`](https://testnet-explorer.hskchain.net/address/0x44C9b017010922ca7E5D03Bac6f9D3a6f47d757e) |
+| Demo GuardedVault (verified) | [`0x4028E060CAc7445E5C68C6Cd0E3e87eC8f9b8006`](https://testnet-explorer.hskchain.net/address/0x4028E060CAc7445E5C68C6Cd0E3e87eC8f9b8006) |
+| Test USDT (verified) | [`0x9768C04C9bC6297bB97ebc7FdE519018A693Bc86`](https://testnet-explorer.hskchain.net/address/0x9768C04C9bC6297bB97ebc7FdE519018A693Bc86) |
+| Test WHSK (verified) | [`0xb8c7e1f97C2D6C1893B1fEe7D0c42A9468761908`](https://testnet-explorer.hskchain.net/address/0xb8c7e1f97C2D6C1893B1fEe7D0c42A9468761908) |
+| Test WETH (verified) | [`0x1922968E9A8131FEda8bD04c1dD0312A78a0356C`](https://testnet-explorer.hskchain.net/address/0x1922968E9A8131FEda8bD04c1dD0312A78a0356C) |
+| Supra price adapter, USDT (verified) | [`0x9Ba50d3dbC233DB009B003a5E4d786fF5935B6DD`](https://testnet-explorer.hskchain.net/address/0x9Ba50d3dbC233DB009B003a5E4d786fF5935B6DD) |
+| Supra price adapter, WHSK (verified) | [`0x075ADF9b65a95B5a868906421EE00F58F7b1F34c`](https://testnet-explorer.hskchain.net/address/0x075ADF9b65a95B5a868906421EE00F58F7b1F34c) |
+| Supra price adapter, WETH (verified) | [`0x7b4F0665712C61b093b70C3861Fbf1E02145ed1A`](https://testnet-explorer.hskchain.net/address/0x7b4F0665712C61b093b70C3861Fbf1E02145ed1A) |
+| Uniswap V3 SwapRouter02 | [`0x7Ca4972B9a8b2D882c2D84c3e9217AD1753FfEE6`](https://testnet-explorer.hskchain.net/address/0x7Ca4972B9a8b2D882c2D84c3e9217AD1753FfEE6) |
+| Uniswap V3 QuoterV2 | [`0x75B491DC839A13BcEc836E7E8c4305Ed4fD40F68`](https://testnet-explorer.hskchain.net/address/0x75B491DC839A13BcEc836E7E8c4305Ed4fD40F68) |
+| WHSK/USDT pool (0.3%) | [`0xe65fC10110B3e6f6d252bE49F94e06De3e62718F`](https://testnet-explorer.hskchain.net/address/0xe65fC10110B3e6f6d252bE49F94e06De3e62718F) |
+| WETH/USDT pool (0.3%) | [`0x17d5A9db9B88424F64314E280e7c5b40954F7242`](https://testnet-explorer.hskchain.net/address/0x17d5A9db9B88424F64314E280e7c5b40954F7242) |
 
 HSK testnet has the Supra oracle but no HSKSwap and no USDT, WHSK or WETH, so the testnet deploy brings its own: mintable test tokens with a faucet, and the official Uniswap V3 factory, `SwapRouter02` and `QuoterV2` that HSKSwap is forked from, with WHSK/USDT and WETH/USDT pools seeded at Supra prices. The vault, the agent and every guardrail run unchanged.
 
@@ -79,8 +96,9 @@ The same steps work on HSK testnet (test tokens), on the local mainnet fork (fak
 
 | Implemented and tested | Planned or pending |
 |---|---|
-| GuardedVault, VaultFactory, SupraFeedAdapter contracts with 31 mainnet-fork tests | Testnet deployment, hosted dashboard and always-on backend (setup ready, deploy in progress) |
-| Testnet stack: test tokens with a faucet, official Uniswap V3 pools, one-command deploy, 5 local tests | Mainnet deployment after the hackathon (addresses in `ABI/addresses.json` are zero until then) |
+| GuardedVault, VaultFactory, SupraFeedAdapter contracts with 31 mainnet-fork tests | Mainnet deployment after the hackathon (addresses in `ABI/addresses.json` are zero until then) |
+| Live on HSK testnet: contracts verified on the testnet explorer, dashboard on Vercel, always-on agent backend on Render | |
+| Testnet stack: test tokens with a faucet, official Uniswap V3 pools, one-command deploy, 5 local tests | |
 | One vault per wallet, one gas-only agent wallet per vault, keys derived from one backend secret | |
 | Mean-reversion and momentum strategies, per-vault agent settings | Demo video |
 | Dashboard: create vault, deposit/withdraw, positions, P&L, equity chart, stop-loss floor, trade log, agent reasoning, agent gas top-up and recovery | Platform fee (none today) |
@@ -88,7 +106,7 @@ The same steps work on HSK testnet (test tokens), on the local mainnet fork (fak
 | Sign-In with Ethereum sessions; the backend acts only on the vault your wallet owns | Durable sessions and persistent price history across backend restarts |
 | Guardrail demo card that provokes an on-chain `TradeTooLarge` revert | |
 
-Nothing in the "implemented" column depends on anything in the "planned" column. Everything in the left column runs today on the local mainnet fork and on a local copy of HSK testnet.
+Nothing in the "implemented" column depends on anything in the "planned" column. Everything in the left column runs today on HSK testnet at [kedia-nu.vercel.app](https://kedia-nu.vercel.app), and on a local fork of mainnet.
 
 ## Verify it yourself
 
@@ -433,11 +451,15 @@ pnpm backend:testnet     # with AGENT_MASTER_KEY and HOPSCOTCH_API_KEY in Backen
 pnpm frontend:testnet    # dashboard at http://localhost:3000
 ```
 
-### Host it (Railway + Vercel)
+### Host it (Render + Vercel)
 
-- **Backend on Railway:** new project from the GitHub repo (private is fine). `railway.json` sets the start command, `pnpm --filter backend start`. Add a volume mounted at `/app/Backend/data` so agent settings and trade logs survive restarts. Variables: `KEDIA_NETWORK=testnet`, `AGENT_MASTER_KEY` (the testnet one), `HOPSCOTCH_API_KEY`, `HOST=0.0.0.0`, `FRONTEND_ORIGIN=https://<your-vercel-domain>`. Generate a public domain for the service.
-- **Frontend on Vercel:** import the repo with **Root Directory** `Frontend`. Variables: `NEXT_PUBLIC_KEDIA_NETWORK=testnet`, `NEXT_PUBLIC_API_URL=https://<your-railway-domain>`.
-- `FRONTEND_ORIGIN` must be the exact Vercel URL: sign-in messages name that site, and the backend only accepts requests from it.
+The live deployment runs the backend on Render's free plan and the dashboard on Vercel.
+
+- **Backend on Render:** **New → Blueprint**, pick the repo. [`render.yaml`](render.yaml) defines the `kedia-backend` web service (free plan, branch `main`, testnet, `FRONTEND_ORIGIN`) and asks for the two secrets: `AGENT_MASTER_KEY` (the testnet one) and `HOPSCOTCH_API_KEY`.
+- **Keep it awake:** a free plan sleeps after 15 minutes without requests and loses its local files when it does, so point a free uptime monitor (UptimeRobot) at `<backend-url>/health` every 5 minutes.
+- **Frontend on Vercel:** import the repo with **Root Directory** `Frontend`. Variables: `NEXT_PUBLIC_KEDIA_NETWORK=testnet`, `NEXT_PUBLIC_API_URL=<backend-url>`. Pushes to `main` redeploy both services.
+- `FRONTEND_ORIGIN` must be the exact dashboard URL: sign-in messages name that site, and the backend only accepts requests from it.
+- [`railway.json`](railway.json) runs the same backend on Railway, with a volume at `/app/Backend/data` for persistent logs.
 
 ### Demo on a local mainnet fork (fake money)
 
@@ -485,7 +507,7 @@ AGENT_MASTER_KEY=<key> forge script script/Deploy.s.sol --rpc-url hsk --account 
 
 The script deploys three price adapters and `VaultFactory` with the default rules from the table above, on the real HSKSwap pools. It then creates the owner wallet's own vault, which visitors see as the demo vault, sends its agent wallet 5 HSK (set `AGENT_FUNDING` in wei to change it), and writes the addresses into `ABI/addresses.json`. Contracts are verified on [hsk.blockscout.com](https://hsk.blockscout.com).
 
-To move the hosted app to mainnet: commit `ABI/addresses.json`, then on Railway remove `KEDIA_NETWORK` and set a new mainnet `AGENT_MASTER_KEY`, and on Vercel remove `NEXT_PUBLIC_KEDIA_NETWORK`. Each user's agent then pays real HSK for gas.
+To move the hosted app to mainnet: commit `ABI/addresses.json`, then on Render remove `KEDIA_NETWORK` and set a new mainnet `AGENT_MASTER_KEY`, and on Vercel remove `NEXT_PUBLIC_KEDIA_NETWORK`. Each user's agent then pays real HSK for gas.
 
 ### Run against mainnet
 
@@ -531,9 +553,10 @@ To check the backend can read your key and reach the model, run `pnpm check:ai` 
 - Agent settings and trade logs are files in `Backend/data/`, kept per vault. The agent's price history for momentum is in memory, so momentum warms up again after a restart.
 - The stop-loss is marked at oracle prices, so a lagging feed can hold equity under the floor and block trading until the price recovers or the next UTC day starts. That is the guardrail working. The owner can also reset it by depositing, withdrawing or raising the cap.
 - Supra's on-chain prices are refreshed by whoever pushes Supra proofs. The vault refuses to trade if a price is older than the freshness limit.
+- The hosted backend runs on Render's free plan, so its trade log, value-chart history and agent settings reset whenever Render restarts it; vaults and funds are on-chain and unaffected. An uptime ping keeps it from sleeping.
 - On testnet the pools are our own, seeded at Supra prices, so their price moves only when someone trades. The agent still compares them with the live HashKey Exchange price, so it trades when the market moves away from the pool. Test tokens have no value.
 - Earnings depend on HSKSwap liquidity and on price gaps that other traders also compete for. Nothing here is a promise of profit.
 
 ## Team
 
-Built by Aayush Gupta ([@AAYUSH-GUPTA-coder](https://github.com/AAYUSH-GUPTA-coder)) during the HSK Chain Horizon Hackathon, 23 Oct to 1 Nov 2026. Claude Code was used as a coding assistant; all generated code was reviewed and is covered by the tests above.
+Built by Aayush Gupta during the HSK Chain Horizon Hackathon, 23 Oct to 1 Nov 2026. GitHub [@AAYUSH-GUPTA-coder](https://github.com/AAYUSH-GUPTA-coder) · X [@Aayush_gupta_ji](https://twitter.com/Aayush_gupta_ji) · LinkedIn [aayushguptaji](https://www.linkedin.com/in/aayushguptaji/)
