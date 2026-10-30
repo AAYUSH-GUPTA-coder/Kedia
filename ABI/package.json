@@ -5,6 +5,7 @@
   "exports": {
     "./addresses.json": "./addresses.json",
     "./addresses.fork.json": "./addresses.fork.json",
+    "./addresses.testnet.json": "./addresses.testnet.json",
     "./GuardedVault": "./GuardedVault.ts",
     "./VaultFactory": "./VaultFactory.ts"
   }

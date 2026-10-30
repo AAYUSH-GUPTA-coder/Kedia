@@ -2,8 +2,7 @@
 
 import { createSiweMessage } from "viem/siwe";
 import { getConnection, signMessage } from "wagmi/actions";
-import { hashkey } from "wagmi/chains";
-import { API, wagmiConfig } from "./config";
+import { API, chain, wagmiConfig } from "./config";
 
 const key = (address: string) => `kedia:session:${address.toLowerCase()}`;
 const pending = new Map<string, Promise<string>>();
@@ -26,7 +25,7 @@ export async function sessionToken(): Promise<string> {
 async function signIn(address: `0x${string}`): Promise<string> {
   const { nonce } = (await (await fetch(`${API}/nonce`)).json()) as { nonce: string };
   const message = createSiweMessage({
-    domain: location.host, uri: location.origin, address, version: "1", chainId: hashkey.id, nonce,
+    domain: location.host, uri: location.origin, address, version: "1", chainId: chain.id, nonce,
     statement: "Sign in to Kedia. This does not send a transaction or cost gas.",
     expirationTime: new Date(Date.now() + 24 * 3600_000),
   });

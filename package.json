@@ -2,6 +2,9 @@
   "name": "kedia",
   "private": true,
   "packageManager": "pnpm@10.0.0",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "backend": "pnpm --filter backend dev",
     "frontend": "pnpm --filter frontend dev",
@@ -9,6 +12,8 @@
     "fork:setup": "SmartContracts/fork-setup.sh",
     "backend:fork": "KEDIA_NETWORK=fork AGENT_MASTER_KEY=0x15e88afcecd0892d8d4e40d498ec9d71f154643b0de7fc32d6fb573b7fd9340e pnpm --filter backend dev",
     "frontend:fork": "NEXT_PUBLIC_KEDIA_NETWORK=fork pnpm --filter frontend dev",
+    "backend:testnet": "KEDIA_NETWORK=testnet pnpm --filter backend dev",
+    "frontend:testnet": "NEXT_PUBLIC_KEDIA_NETWORK=testnet pnpm --filter frontend dev",
     "abi": "SmartContracts/export-abi.sh",
     "test": "cd SmartContracts && forge test && cd .. && node --test Backend/src/*.test.ts AI/src/*.test.ts Frontend/src/lib/*.test.ts",
     "typecheck": "pnpm --filter backend --filter @kedia/ai --filter frontend exec tsc --noEmit",

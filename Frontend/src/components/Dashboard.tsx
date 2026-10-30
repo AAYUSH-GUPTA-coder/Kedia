@@ -3,9 +3,8 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useChainId, useConnect, useConnection, useConnectors, useDisconnect, useSwitchChain } from "wagmi";
-import { hashkey } from "wagmi/chains";
 import { api, pct, usd, type EquityPoint, type LogEntry, type State } from "@/lib/api";
-import { DEMO_VAULT, explorerAddr } from "@/lib/config";
+import { chain, DEMO_VAULT, explorerAddr, TESTNET } from "@/lib/config";
 import { blocked } from "@/lib/protection";
 import { useMyVault } from "@/lib/useMyVault";
 import { Chat } from "./Chat";
@@ -43,7 +42,7 @@ function Wallet({ owner }: { owner?: string }) {
   const isOwner = owner && address?.toLowerCase() === owner.toLowerCase();
   return (
     <div className="flex items-center gap-2">
-      {chainId !== hashkey.id && <Button variant="danger" onClick={() => switchChain.mutate({ chainId: hashkey.id })}>Switch to HSK Chain</Button>}
+      {chainId !== chain.id && <Button variant="danger" onClick={() => switchChain.mutate({ chainId: chain.id })}>Switch to {chain.name}</Button>}
       <span className="hidden h-8 items-center gap-2 rounded-md border border-line px-2.5 text-xs text-muted sm:inline-flex">
         <Dot tone={isOwner ? "good" : "muted"} />{isOwner ? "Owner" : "Read-only"}
         <span className="font-mono text-fg">{address?.slice(0, 6)}…{address?.slice(-4)}</span>
@@ -66,7 +65,7 @@ function Hero() {
       <div aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-accent" />
       <div className="grid gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-12">
         <div className="flex flex-col justify-center">
-          <div><Tag tone="accent">AI agent trading on HSK Chain</Tag></div>
+          <div><Tag tone="accent">{TESTNET ? "Live on HSK Chain testnet · test funds" : "AI agent trading on HSK Chain"}</Tag></div>
           <h2 id="hero-title" className="mt-4 text-3xl font-semibold leading-tight tracking-tight text-balance sm:text-4xl">
             An AI trader that <span className="text-accent">can&apos;t break your rules.</span>
           </h2>
@@ -111,7 +110,7 @@ function HeroStrip() {
   return (
     <section aria-label="About Kedia" className="relative flex flex-wrap items-center gap-x-6 gap-y-2 overflow-hidden rounded-xl border border-line bg-panel py-3 pr-3 pl-5">
       <div aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-accent" />
-      <p className="text-sm font-semibold tracking-tight">An AI trader that <span className="text-accent">can&apos;t break your rules.</span></p>
+      <p className="text-sm font-semibold tracking-tight">An AI trader that <span className="text-accent">can&apos;t break your rules.</span>{TESTNET && <span className="ml-2 font-normal text-faint">Testnet, test funds</span>}</p>
       <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
         {PILLARS.map(([title], i) => (
           <li key={title} className="inline-flex items-center gap-1.5"><span className="font-mono text-accent tabular-nums">0{i + 1}</span>{title}</li>

@@ -5,19 +5,19 @@ import { useQuery } from "@tanstack/react-query";
 import { parseEther } from "viem";
 import { useConnection, useReadContract } from "wagmi";
 import { writeContract } from "wagmi/actions";
-import { hashkey } from "wagmi/chains";
 import { api, pct, usd } from "@/lib/api";
-import { factory, wagmiConfig } from "@/lib/config";
+import { chain, factory, TESTNET, wagmiConfig } from "@/lib/config";
 import { useVaultTx } from "@/lib/useVaultTx";
+import { TestTokens } from "./TestTokens";
 import { Button, field, TxResult } from "./ui";
 
 /** Shown to a connected wallet that has no vault yet. One transaction creates a vault this wallet owns and funds its agent wallet. */
 export function CreateVault({ onCreated }: { onCreated: () => void }) {
   const tx = useVaultTx(onCreated);
   const { address } = useConnection();
-  const p = useReadContract({ ...factory, chainId: hashkey.id, functionName: "defaultPolicy" }).data;
+  const p = useReadContract({ ...factory, chainId: chain.id, functionName: "defaultPolicy" }).data;
   const agent = useQuery({ queryKey: ["agent", address], queryFn: () => api.agent(address!), enabled: !!address });
-  const [gas, setGas] = useState("5");
+  const [gas, setGas] = useState(TESTNET ? "0.05" : "5"); // testnet gas is about 500x cheaper
   const gasOk = /^\d*\.?\d+$/.test(gas.trim());
   return (
     <section className="relative overflow-hidden rounded-xl border border-accent/25 bg-panel" aria-labelledby="create-vault">
@@ -42,14 +42,15 @@ export function CreateVault({ onCreated }: { onCreated: () => void }) {
             HSK
           </label>
           <Button variant="primary" disabled={!!tx.busy || !agent.data || !gasOk} onClick={() => tx.send("Create vault", () => writeContract(wagmiConfig, {
-            ...factory, chainId: hashkey.id, functionName: "createVault", args: [agent.data!.address], value: parseEther(gas.trim()),
+            ...factory, chainId: chain.id, functionName: "createVault", args: [agent.data!.address], value: parseEther(gas.trim()),
           }))}>
             {tx.busy ? "Confirm in wallet…" : "Create my vault"}
           </Button>
-          <span className="text-xs text-faint md:text-right">One transaction: about 1 HSK to create, plus the agent&apos;s gas.<br className="hidden md:block" /> Top it up or take it back any time. Then deposit USDT or WHSK.</span>
+          <span className="text-xs text-faint md:text-right">One transaction: a little HSK to create, plus the agent&apos;s gas.<br className="hidden md:block" /> Top it up or take it back any time. Then deposit USDT or WHSK.</span>
           {agent.error && <span className="text-xs text-down">Backend unreachable: {agent.error.message}</span>}
         </div>
       </div>
+      {TESTNET && <div className="border-t border-line px-5 py-3 sm:px-6"><TestTokens /></div>}
       {tx.result && <div className="px-5 pb-4 sm:px-6"><TxResult result={tx.result} /></div>}
     </section>
   );

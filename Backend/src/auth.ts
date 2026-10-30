@@ -1,9 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 import type { Address } from 'viem';
-import { hashkey } from 'viem/chains';
 import { generateSiweNonce, parseSiweMessage } from 'viem/siwe';
-import { FRONTEND_ORIGIN } from './config.ts';
+import { CHAIN, FRONTEND_ORIGIN } from './config.ts';
 import { publicClient } from './chain.ts';
 
 export class HttpError extends Error {
@@ -38,7 +37,7 @@ export async function login(body: { message?: unknown; signature?: unknown }) {
   const nonceExp = fields.nonce ? nonces.get(fields.nonce) : undefined;
   if (!fields.nonce || !nonceExp || nonceExp < Date.now()) throw new HttpError(401, 'Sign-in request expired. Try again.');
   nonces.delete(fields.nonce); // single use
-  if (fields.chainId !== hashkey.id || !fields.address) throw new HttpError(401, 'Sign-in must be for HSK Chain.');
+  if (fields.chainId !== CHAIN.id || !fields.address) throw new HttpError(401, `Sign-in must be for ${CHAIN.name}.`);
   const ok = await publicClient.verifySiweMessage({
     message, signature: signature as `0x${string}`, domain: new URL(FRONTEND_ORIGIN).host, nonce: fields.nonce,
   });

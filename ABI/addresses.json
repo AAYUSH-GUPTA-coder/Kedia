@@ -26,5 +26,6 @@
     "WETH": "0xbB091f3b515059b7A887eDcC73dC2a2Fa65E0242"
   },
   "supra": { "storage": "0x58e158c74DF7Ad6396C0dcbadc4878faC9e93d57", "pairs": { "USDT": 48, "WHSK": 517, "WETH": 1 } },
-  "exchangeApi": "https://api-glb.hashkey.com"
+  "exchangeApi": "https://api-glb.hashkey.com",
+  "faucetUrl": ""
 }

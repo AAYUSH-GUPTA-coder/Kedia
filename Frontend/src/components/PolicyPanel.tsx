@@ -7,6 +7,7 @@ import { cfg, SYMS, vaultAt, wagmiConfig, type Sym } from "@/lib/config";
 import { pct, usd, type State } from "@/lib/api";
 import { parsePolicyForm, proposalCalls, toPolicyForm, type PolicyForm } from "@/lib/policy";
 import { useVaultTx } from "@/lib/useVaultTx";
+import { TestTokens } from "./TestTokens";
 import { Button, Field, field, Panel, Tag, TxResult } from "./ui";
 
 export function PolicyPanel({ s, isOwner, refresh }: { s: State; isOwner: boolean; refresh: () => void }) {
@@ -95,6 +96,7 @@ export function PolicyPanel({ s, isOwner, refresh }: { s: State; isOwner: boolea
       {isOwner && (
         <div className="-mx-4 mt-4 space-y-3 border-t border-line px-4 pt-4">
           <h3 className="text-sm font-semibold">Owner actions</h3>
+          <TestTokens onDone={refresh} />
           <div>
             {s.vault.paused
               ? <Button variant="primary" disabled={!!tx.busy} onClick={() => tx.send("Unpause", () => writeContract(wagmiConfig, { ...vault, functionName: "unpause" }))}>Unpause trading</Button>

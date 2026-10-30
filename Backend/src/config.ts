@@ -1,13 +1,20 @@
 import { existsSync } from 'node:fs';
 import type { Address, Hex } from 'viem';
+import { defineChain } from 'viem';
+import { hashkey, hashkeyTestnet } from 'viem/chains';
 import mainnet from '@kedia/abi/addresses.json' with { type: 'json' };
 
 if (existsSync(new URL('../.env', import.meta.url))) process.loadEnvFile(new URL('../.env', import.meta.url));
 
-/** KEDIA_NETWORK=fork reads the local fork deployment that SmartContracts/fork-setup.sh writes; anything else is mainnet. */
-export const FORK = process.env.KEDIA_NETWORK === 'fork';
-const forkFile = '@kedia/abi/addresses.fork.json'; // a variable, so typechecking works before the file exists
-const addresses: typeof mainnet = FORK ? (await import(forkFile, { with: { type: 'json' } })).default : mainnet;
+/**
+ * KEDIA_NETWORK picks the deployment: `testnet` (ABI/addresses.testnet.json, HSK testnet), `fork` (the local fork
+ * SmartContracts/fork-setup.sh writes) or, by default, mainnet (ABI/addresses.json).
+ */
+export const NETWORK = (process.env.KEDIA_NETWORK ?? 'mainnet') as 'mainnet' | 'testnet' | 'fork';
+if (!['mainnet', 'testnet', 'fork'].includes(NETWORK)) throw new Error(`KEDIA_NETWORK must be mainnet, testnet or fork, not ${NETWORK}`);
+export const ADDRESSES_FILE = NETWORK === 'mainnet' ? 'ABI/addresses.json' : `ABI/addresses.${NETWORK}.json`;
+const file = `@kedia/abi/addresses.${NETWORK}.json`; // a variable, so typechecking works before the file exists
+const addresses: typeof mainnet = NETWORK === 'mainnet' ? mainnet : (await import(file, { with: { type: 'json' } })).default;
 
 function env(name: string): string {
   const v = process.env[name];
@@ -21,8 +28,19 @@ export const FACTORY = addresses.factory as Address;
 export const DEMO_VAULT = addresses.demoVault as Address;
 export const ROUTER = addresses.hskswap.swapRouter02 as Address;
 export const QUOTER = addresses.hskswap.quoterV2 as Address;
-// On the fork, always the fork's own RPC, so a mainnet RPC_URL in .env can never mix the two.
-export const RPC_URL = FORK ? addresses.rpcUrl : (process.env.RPC_URL ?? addresses.rpcUrl);
+// Off mainnet, always the file's own RPC, so a mainnet RPC_URL in .env can never mix two networks.
+export const RPC_URL = NETWORK === 'mainnet' ? (process.env.RPC_URL ?? addresses.rpcUrl) : addresses.rpcUrl;
+/**
+ * The fork keeps mainnet's chain id, so only the testnet file selects the testnet chain. viem's testnet entry lacks
+ * Multicall3 (deployed at the usual address) and has an old explorer URL, so both are filled in here.
+ */
+export const CHAIN = addresses.chainId === hashkeyTestnet.id
+  ? defineChain({
+    ...hashkeyTestnet,
+    contracts: { multicall3: { address: '0xcA11bde05977b3631167028862bE2a173976CA11', blockCreated: 0 } },
+    blockExplorers: { default: { name: 'HSK Chain Testnet explorer', url: addresses.explorer } },
+  })
+  : hashkey;
 /** Secret every agent wallet is derived from, one per vault creator. Whoever holds it controls every agent wallet's gas, never vault funds. */
 export const AGENT_MASTER_KEY = (): Hex => {
   const k = env('AGENT_MASTER_KEY');

@@ -1,12 +1,11 @@
 import { createPublicClient, createWalletClient, encodePacked, http, keccak256, nonceManager, parseAbi, BaseError, ContractFunctionRevertedError } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { hashkey } from 'viem/chains';
 import type { Address } from 'viem';
 import { guardedVaultAbi } from '@kedia/abi/GuardedVault';
 import { vaultFactoryAbi } from '@kedia/abi/VaultFactory';
-import { AGENT_MASTER_KEY, FACTORY, RPC_URL } from './config.ts';
+import { AGENT_MASTER_KEY, CHAIN, FACTORY, RPC_URL } from './config.ts';
 
-export const publicClient = createPublicClient({ chain: hashkey, transport: http(RPC_URL) });
+export const publicClient = createPublicClient({ chain: CHAIN, transport: http(RPC_URL) });
 
 export const vaultAt = (address: Address) => ({ address, abi: guardedVaultAbi }) as const;
 export const factory = { address: FACTORY, abi: vaultFactoryAbi } as const;
@@ -14,7 +13,7 @@ export const factory = { address: FACTORY, abi: vaultFactoryAbi } as const;
 /** Private key of the agent wallet for vaults created by `creator`. Same derivation as script/Deploy.s.sol. */
 const agentKey = (creator: Address) => keccak256(encodePacked(['bytes32', 'address'], [AGENT_MASTER_KEY(), creator]));
 const makeAgent = (creator: Address) =>
-  createWalletClient({ chain: hashkey, transport: http(RPC_URL), account: privateKeyToAccount(agentKey(creator), { nonceManager }) });
+  createWalletClient({ chain: CHAIN, transport: http(RPC_URL), account: privateKeyToAccount(agentKey(creator), { nonceManager }) });
 const agents = new Map<Address, ReturnType<typeof makeAgent>>();
 const creators = new Map<Address, Address>();
 
