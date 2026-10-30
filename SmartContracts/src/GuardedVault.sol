@@ -11,16 +11,19 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {AggregatorV3Interface} from "./interfaces/AggregatorV3Interface.sol";
 import {ISwapRouter02} from "./interfaces/ISwapRouter02.sol";
 
-/// @title GuardedVault
-/// @notice Holds the owner's funds. An AI agent holding only the operator key may swap on HSKSwap,
-///         but every trade must pass limits enforced here: allowed tokens, max trade size, cooldown,
-///         oracle staleness, realized-price band vs the APRO oracle, and a daily loss cap (stop-loss).
-///         Only the owner can change the limits, pause, deposit or withdraw. The owner batches a policy
-///         change (setPolicy + setAllowedToken calls) into one signature with multicall.
+/**
+ * @title GuardedVault
+ * @author Aayush Gupta
+ * @notice Holds the owner's funds. An AI agent holding only the operator key may swap on HSKSwap,
+ *         but every trade must pass limits enforced here: allowed tokens, max trade size, cooldown,
+ *         oracle staleness, a realized-price band vs the price oracle, and a daily loss cap (stop-loss).
+ *         Only the owner can change the limits, pause, deposit or withdraw. The owner batches a policy
+ *         change (setPolicy + setAllowedToken calls) into one signature with multicall.
+ */
 contract GuardedVault is Ownable, Pausable, ReentrancyGuardTransient, Multicall {
     using SafeERC20 for IERC20;
 
-    /// @dev All USD values use 8 decimals (APRO feed precision). bps = 1/10000.
+    /// @dev All USD values use 8 decimals (price feed precision). bps = 1/10000.
     struct Policy {
         uint256 maxTradeUsd; // max USD value of a single trade's input
         uint16 dailyLossCapBps; // max drawdown of oracle-marked equity vs the day-start snapshot
@@ -86,7 +89,9 @@ contract GuardedVault is Ownable, Pausable, ReentrancyGuardTransient, Multicall 
         _setPolicy(policy_);
     }
 
-    // ------------------------------------------------------------------ operator
+    /*//////////////////////////////////////////////////////////////
+                                 OPERATOR
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Swap `amountIn` of `tokenIn` for `tokenOut` on HSKSwap through the vault's guardrails.
     function executeSwap(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint256 minAmountOut)
@@ -140,7 +145,9 @@ contract GuardedVault is Ownable, Pausable, ReentrancyGuardTransient, Multicall 
         emit TradeExecuted(tokenIn, tokenOut, amountIn, amountOut, usdIn, usdOut, equityAfter);
     }
 
-    // ------------------------------------------------------------------ owner
+    /*//////////////////////////////////////////////////////////////
+                                  OWNER
+    //////////////////////////////////////////////////////////////*/
 
     function setPolicy(Policy calldata policy_) external onlyOwner {
         _setPolicy(policy_);
@@ -187,7 +194,9 @@ contract GuardedVault is Ownable, Pausable, ReentrancyGuardTransient, Multicall 
         emit Withdrawn(token, amount, _usdUnchecked(token, amount), to);
     }
 
-    // ------------------------------------------------------------------ views
+    /*//////////////////////////////////////////////////////////////
+                                  VIEWS
+    //////////////////////////////////////////////////////////////*/
 
     function policy() external view returns (Policy memory) {
         return _policy;
@@ -212,7 +221,9 @@ contract GuardedVault is Ownable, Pausable, ReentrancyGuardTransient, Multicall 
         return dayStartEquity * (BPS - _policy.dailyLossCapBps) / BPS;
     }
 
-    // ------------------------------------------------------------------ internal
+    /*//////////////////////////////////////////////////////////////
+                                 INTERNAL
+    //////////////////////////////////////////////////////////////*/
 
     function _setPolicy(Policy memory p) internal {
         if (p.dailyLossCapBps > BPS || p.maxOracleDeviationBps > BPS || p.maxOracleAge == 0) revert InvalidPolicy();

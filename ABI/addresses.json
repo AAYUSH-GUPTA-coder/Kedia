@@ -2,7 +2,8 @@
   "chainId": 177,
   "rpcUrl": "https://mainnet.hsk.xyz",
   "explorer": "https://hashkey.blockscout.com",
-  "vault": "0x0000000000000000000000000000000000000000",
+  "factory": "0x0000000000000000000000000000000000000000",
+  "demoVault": "0x0000000000000000000000000000000000000000",
   "deployBlock": 0,
   "hskswap": {
     "factory": "0x972cA9D1662F5e029cD18327D29026532E84c742",
@@ -25,5 +26,6 @@
     "WETH": "0xbB091f3b515059b7A887eDcC73dC2a2Fa65E0242"
   },
   "supra": { "storage": "0x58e158c74DF7Ad6396C0dcbadc4878faC9e93d57", "pairs": { "USDT": 48, "WHSK": 517, "WETH": 1 } },
-  "exchangeApi": "https://api-glb.hashkey.com"
+  "exchangeApi": "https://api-glb.hashkey.com",
+  "faucetUrl": ""
 }

@@ -5,7 +5,11 @@ node_modules/
 dist/
 SmartContracts/out/
 SmartContracts/cache/
-SmartContracts/broadcast/**/dry-run/
+SmartContracts/broadcast/
 Backend/state.json
 Backend/trades.json
+Backend/data/
+ABI/addresses.fork.json
 .DS_Store
+Working.md
+.vercel

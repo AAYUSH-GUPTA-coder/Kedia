@@ -1,51 +1,88 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { formatEther } from 'viem';
+import { formatEther, getAddress, isAddress, isAddressEqual, zeroAddress, type Address } from 'viem';
 import { chat, type ChatTurn, type StrategyProposal } from '@kedia/ai';
-import { ASSETS, cfg, type Asset } from './config.ts';
-import { publicClient } from './chain.ts';
+import { ASSETS, cfg, DEMO_VAULT, FRONTEND_ORIGIN, type Asset } from './config.ts';
+import { agentFor, factory, listVaults, publicClient, vaultAt } from './chain.ts';
 import { readVault } from './market.ts';
 import { netDepositsUsd } from './pnl.ts';
-import { manualTrade, status } from './agent.ts';
-import { loadStrategy, readLog, saveStrategy, validateStrategy } from './store.ts';
+import { agentStatus, manualTrade, withdrawAgentGas } from './agent.ts';
+import { HttpError, login, newNonce, ownerOf } from './auth.ts';
+import { loadStrategy, readEquity, readLog, saveStrategy, validateStrategy } from './store.ts';
 
-export async function getState() {
-  const [v, net] = await Promise.all([readVault(), netDepositsUsd()]);
+export async function getState(vault: Address) {
+  const [v, net] = await Promise.all([readVault(vault), netDepositsUsd(vault)]);
   const gas = await publicClient.getBalance({ address: v.operator });
   return {
     vault: v,
     pnl: { netDepositsUsd: net, pnlUsd: v.equity - net, dayChangePct: v.dayStartEquity ? (v.equity / v.dayStartEquity - 1) * 100 : 0 },
-    strategy: loadStrategy(),
-    agent: { ...status, operatorGasHsk: Number(formatEther(gas)) },
+    strategy: loadStrategy(vault),
+    agent: { ...agentStatus(vault), operatorGasHsk: Number(formatEther(gas)) },
     explorer: cfg.explorer,
   };
 }
 
-async function trade(body: { symbol: Asset; side: 'buy' | 'sell'; usd: number }, source: 'chat' | 'demo') {
-  if (!ASSETS.includes(body.symbol) || !['buy', 'sell'].includes(body.side) || !(body.usd > 0 && body.usd < 1e6)) throw new Error('invalid trade request');
-  return manualTrade(body.symbol, body.side, body.usd, source);
+/** Public reads: `?vault=` must be a factory vault; without it, the demo vault. */
+async function readTarget(url: URL): Promise<Address> {
+  const q = url.searchParams.get('vault');
+  if (!q) return DEMO_VAULT;
+  if (!isAddress(q)) throw new HttpError(400, 'vault must be an address');
+  const v = getAddress(q);
+  if (!(await listVaults()).some((x) => isAddressEqual(x, v))) throw new HttpError(404, 'not a Kedia vault');
+  return v;
 }
 
-const routes: Record<string, (body: any) => Promise<unknown>> = {
-  'GET /state': getState,
-  'GET /log': async () => readLog(),
-  'POST /strategy': async (patch: Partial<StrategyProposal>) => {
-    const { rationale: _, ...rest } = patch;
-    return saveStrategy(rest);
+/** Writes act only on the signed-in wallet's own vault, looked up on-chain, never on an address the client sends. */
+async function myVault(req: IncomingMessage): Promise<Address> {
+  const owner = ownerOf(req);
+  const vault = await publicClient.readContract({ ...factory, functionName: 'vaultOf', args: [owner] });
+  if (vault === zeroAddress) throw new HttpError(404, 'This wallet has no vault yet. Create one first.');
+  // The owner may have handed the vault to another wallet since creating it.
+  const current = await publicClient.readContract({ ...vaultAt(vault), functionName: 'owner' });
+  if (!isAddressEqual(current, owner)) throw new HttpError(403, 'This wallet no longer owns its vault.');
+  return vault;
+}
+
+async function trade(vault: Address, body: { symbol: Asset; side: 'buy' | 'sell'; amount: number; unit: 'usd' | 'asset' }, source: 'chat' | 'demo') {
+  const ok = ASSETS.includes(body.symbol) && ['buy', 'sell'].includes(body.side) && ['usd', 'asset'].includes(body.unit) && body.amount > 0 && body.amount < 1e12;
+  if (!ok) throw new HttpError(400, 'invalid trade request: need symbol WHSK|WETH, side buy|sell, unit usd|asset, amount > 0');
+  return manualTrade(vault, body.symbol, body.side, { amount: body.amount, unit: body.unit }, source);
+}
+
+type Ctx = { req: IncomingMessage; url: URL; body: any };
+const routes: Record<string, (c: Ctx) => Promise<unknown>> = {
+  'GET /state': async ({ url }) => getState(await readTarget(url)),
+  'GET /log': async ({ url }) => readLog(await readTarget(url)),
+  'GET /equity': async ({ url }) => readEquity(await readTarget(url)),
+  'GET /nonce': async () => newNonce(),
+  // The agent wallet a new vault for `owner` should use. Addresses are public; the key never leaves the backend.
+  'GET /agent': async ({ url }) => {
+    const o = url.searchParams.get('owner');
+    if (!o || !isAddress(o)) throw new HttpError(400, 'owner must be an address');
+    return { address: agentFor(getAddress(o)).account.address };
   },
-  'POST /trade': (b) => trade(b, 'demo'),
-  'POST /chat': async ({ messages }: { messages: ChatTurn[] }) => {
-    if (!Array.isArray(messages) || messages.length === 0) throw new Error('messages required');
+  'POST /agent/withdraw': async ({ req }) => withdrawAgentGas(await myVault(req)),
+  'POST /login': async ({ body }) => login(body),
+  'POST /strategy': async ({ req, body }) => {
+    const vault = await myVault(req);
+    const { rationale: _, ...rest } = body as Partial<StrategyProposal>;
+    return saveStrategy(vault, rest);
+  },
+  'POST /trade': async ({ req, body }) => trade(await myVault(req), body, 'demo'),
+  'POST /chat': async ({ req, body }) => {
+    const vault = await myVault(req);
+    const { messages } = body as { messages: ChatTurn[] };
+    if (!Array.isArray(messages) || messages.length === 0) throw new HttpError(400, 'messages required');
     return chat(messages, {
       getState: async () => {
-        const s = await getState();
+        const s = await getState(vault);
         // Positions without raw bigints, plus the latest log lines, keep the model's context small.
-        return { ...s, vault: { ...s.vault, positions: s.vault.positions.map(({ raw: _, ...p }) => p) }, recentLog: readLog().slice(0, 8) };
+        return { ...s, vault: { ...s.vault, positions: s.vault.positions.map(({ raw: _, ...p }) => p) }, recentLog: readLog(vault).slice(0, 8) };
       },
       checkStrategy: (p) => {
         const { rationale: _, ...rest } = p;
-        return validateStrategy({ ...loadStrategy(), ...rest });
+        return validateStrategy({ ...loadStrategy(vault), ...rest });
       },
-      attemptTrade: (a) => trade(a, 'chat'),
+      attemptTrade: (a) => trade(vault, a, 'chat'),
     });
   },
 };
@@ -59,23 +96,23 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
   let raw = '';
   for await (const chunk of req) {
     raw += chunk;
-    if (raw.length > 200_000) throw new Error('body too large');
+    if (raw.length > 200_000) throw new HttpError(413, 'body too large');
   }
   return raw ? JSON.parse(raw) : {};
 }
 
-export function startServer(port: number) {
-  const origin = process.env.FRONTEND_ORIGIN ?? 'http://localhost:3000';
+export function startServer(host: string, port: number) {
   createServer(async (req, res) => {
-    res.setHeader('access-control-allow-origin', origin);
-    res.setHeader('access-control-allow-headers', 'content-type');
+    res.setHeader('access-control-allow-origin', FRONTEND_ORIGIN);
+    res.setHeader('access-control-allow-headers', 'content-type, authorization');
     if (req.method === 'OPTIONS') return void res.writeHead(204).end();
-    const handler = routes[`${req.method} ${new URL(req.url ?? '/', 'http://x').pathname}`];
+    const url = new URL(req.url ?? '/', 'http://x');
+    const handler = routes[`${req.method} ${url.pathname}`];
     if (!handler) return json(res, 404, { error: 'not found' });
     try {
-      json(res, 200, await handler(await readBody(req)));
+      json(res, 200, await handler({ req, url, body: await readBody(req) }));
     } catch (e) {
-      json(res, 400, { error: e instanceof Error ? e.message : String(e) });
+      json(res, e instanceof HttpError ? e.status : 400, { error: e instanceof Error ? e.message : String(e) });
     }
-  }).listen(port, '127.0.0.1', () => console.log(`API on http://127.0.0.1:${port}`));
+  }).listen(port, host, () => console.log(`API on http://${host}:${port}`));
 }

@@ -13,10 +13,12 @@ remappings = [
 ]
 
 # Deploy script writes deployed addresses into the shared config.
-fs_permissions = [{ access = "read-write", path = "../ABI" }]
+fs_permissions = [{ access = "read-write", path = "../ABI" }, { access = "read", path = "./vendor" }]
 
 [rpc_endpoints]
 hsk = "https://mainnet.hsk.xyz"
+hsk_testnet = "https://testnet.hsk.xyz"
 
 [etherscan]
 hsk = { key = "blockscout", url = "https://hashkey.blockscout.com/api", chain = 177 }
+hsk_testnet = { key = "blockscout", url = "https://testnet-explorer.hskchain.net/api/", chain = 133 }

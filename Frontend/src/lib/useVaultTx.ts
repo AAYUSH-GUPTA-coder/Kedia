@@ -11,7 +11,8 @@ export type TxStatus = { busy: string | null; result: { ok: boolean; text: strin
 export function useVaultTx(onDone?: () => void) {
   const [status, setStatus] = useState<TxStatus>({ busy: null, result: null });
 
-  async function send(label: string, ...steps: Array<() => Promise<Hash>>) {
+  /** Resolves true once every step is confirmed, false if any fails (the error is in `result`). */
+  async function send(label: string, ...steps: Array<() => Promise<Hash>>): Promise<boolean> {
     setStatus({ busy: label, result: null });
     let hash: Hash | undefined;
     try {
@@ -22,9 +23,11 @@ export function useVaultTx(onDone?: () => void) {
       }
       setStatus({ busy: null, result: { ok: true, text: `${label}: confirmed`, hash } });
       onDone?.();
+      return true;
     } catch (e) {
       const text = e instanceof BaseError ? e.shortMessage : e instanceof Error ? e.message : String(e);
       setStatus({ busy: null, result: { ok: false, text: `${label}: ${text}`, hash } });
+      return false;
     }
   }
   return { ...status, send };

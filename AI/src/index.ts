@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { validatePolicy, type PolicyProposal, type StrategyProposal } from './proposals.ts';
 
 export * from './proposals.ts';
@@ -9,14 +9,17 @@ export type ChatActions = {
   /** Validates and returns an error message, or null. */
   checkStrategy(s: StrategyProposal): string | null;
   /** Sends a real trade through the vault. The vault's limits decide whether it executes. */
-  attemptTrade(a: { symbol: 'WHSK' | 'WETH'; side: 'buy' | 'sell'; usd: number }): Promise<unknown>;
+  attemptTrade(a: { symbol: 'WHSK' | 'WETH'; side: 'buy' | 'sell'; amount: number; unit: 'usd' | 'asset' }): Promise<unknown>;
 };
 
 export type ChatTurn = { role: 'user' | 'assistant'; content: string };
 export type ChatResult = { reply: string; policy?: PolicyProposal; strategy?: StrategyProposal; trades: unknown[] };
 
-// The user picked Sonnet for chat latency during planning; override with CLAUDE_MODEL.
-const MODEL = process.env.CLAUDE_MODEL ?? 'claude-sonnet-5-5';
+// Claude Sonnet 5.5 through the Hopscotch Labs gateway. Hopscotch serves this model only on its
+// OpenAI-compatible /v1/chat/completions (its /v1/messages refuses it), hence the openai client.
+export const MODEL = process.env.HOPSCOTCH_MODEL ?? 'anthropic/claude-sonnet-5-5';
+// Accept the bare origin too: the openai client appends /chat/completions, so /v1 must be on the end.
+export const BASE_URL = (process.env.HOPSCOTCH_BASE_URL ?? 'https://api.hopscotchlabs.ai').replace(/\/+$/, '').replace(/(\/v1)?$/, '/v1');
 const MAX_STEPS = 8;
 
 const SYSTEM = `You are the risk desk for a crypto trading vault on HSK Chain. An autonomous agent trades WHSK/USDT and WETH/USDT on HSKSwap through the vault. The vault contract enforces the user's limits; nothing you say can change them without the user's wallet signature.
@@ -27,95 +30,97 @@ What you can do:
 - propose_strategy: propose changes to the agent's off-chain settings (mode, symbols, trade size, edge, slippage, loop interval). Send only the fields that change. The user confirms it.
 - attempt_trade: place one trade, only when the user explicitly asks you to trade. Do it even if it obviously breaks a limit: the point is to show the vault refusing it. Report the outcome plainly, including the revert name and transaction hash.
 
+Trade sizes: pass the user's number as typed. Use unit 'asset' for token amounts and 'usd' for dollar amounts; never convert between them yourself. HSK means WHSK and ETH means WETH. If the vault lacks the balance, the tool says so; relay it.
 Units: maxTradeUsd is in dollars. *Bps fields are basis points (100 bps = 1%). Times are seconds.
 Mapping hints: "less risk" or "halve my risk" means lower maxTradeUsd and dailyLossCapBps (halve both for "halve"). "Stop trading X" means remove X from allowedTokens in the policy and from the agent's symbols. USDT is the quote token: keep it allowed unless the user asks to stop all trading, in which case suggest pausing.
 Be brief. Use plain numbers with units.`;
 
-const tools: Anthropic.Beta.BetaTool[] = [
-  { name: 'get_state', description: 'Read vault positions, equity, P&L, on-chain policy, agent strategy and recent decisions.', input_schema: { type: 'object', properties: {} } },
-  {
-    name: 'propose_policy',
-    description: 'Propose a complete new on-chain risk policy for the user to review and sign.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        maxTradeUsd: { type: 'number', description: 'Max USD value per trade' },
-        dailyLossCapBps: { type: 'integer', description: 'Max daily drawdown of equity, in bps' },
-        maxOracleDeviationBps: { type: 'integer', description: 'Max shortfall of fill value vs oracle value, in bps' },
-        cooldownSeconds: { type: 'integer', description: 'Min seconds between trades' },
-        maxOracleAge: { type: 'integer', description: 'Max oracle answer age in seconds' },
-        allowedTokens: { type: 'array', items: { type: 'string', enum: ['USDT', 'WHSK', 'WETH'] } },
-        rationale: { type: 'string', description: 'One sentence explaining the change' },
-      },
-      required: ['maxTradeUsd', 'dailyLossCapBps', 'maxOracleDeviationBps', 'cooldownSeconds', 'maxOracleAge', 'allowedTokens', 'rationale'],
+const fn = (name: string, description: string, parameters: Record<string, unknown>): OpenAI.ChatCompletionTool => ({
+  type: 'function',
+  function: { name, description, parameters },
+});
+
+const tools: OpenAI.ChatCompletionTool[] = [
+  fn('get_state', 'Read vault positions, equity, P&L, on-chain policy, agent strategy and recent decisions.', { type: 'object', properties: {} }),
+  fn('propose_policy', 'Propose a complete new on-chain risk policy for the user to review and sign.', {
+    type: 'object',
+    properties: {
+      maxTradeUsd: { type: 'number', description: 'Max USD value per trade' },
+      dailyLossCapBps: { type: 'integer', description: 'Max daily drawdown of equity, in bps' },
+      maxOracleDeviationBps: { type: 'integer', description: 'Max shortfall of fill value vs oracle value, in bps' },
+      cooldownSeconds: { type: 'integer', description: 'Min seconds between trades' },
+      maxOracleAge: { type: 'integer', description: 'Max oracle answer age in seconds' },
+      allowedTokens: { type: 'array', items: { type: 'string', enum: ['USDT', 'WHSK', 'WETH'] } },
+      rationale: { type: 'string', description: 'One sentence explaining the change' },
     },
-  },
-  {
-    name: 'propose_strategy',
-    description: "Propose changes to the agent's off-chain strategy settings. Include only fields that change.",
-    input_schema: {
-      type: 'object',
-      properties: {
-        mode: { type: 'string', enum: ['meanReversion', 'momentum', 'off'] },
-        symbols: { type: 'array', items: { type: 'string', enum: ['WHSK', 'WETH'] } },
-        tradeUsd: { type: 'number', description: 'USD per trade (capped by the on-chain maxTradeUsd)' },
-        edgeBps: { type: 'integer', description: 'Min price gap vs reference before trading, in bps' },
-        slippageBps: { type: 'integer' },
-        loopSeconds: { type: 'integer' },
-        rationale: { type: 'string' },
-      },
-      required: ['rationale'],
+    required: ['maxTradeUsd', 'dailyLossCapBps', 'maxOracleDeviationBps', 'cooldownSeconds', 'maxOracleAge', 'allowedTokens', 'rationale'],
+  }),
+  fn('propose_strategy', "Propose changes to the agent's off-chain strategy settings. Include only fields that change.", {
+    type: 'object',
+    properties: {
+      mode: { type: 'string', enum: ['meanReversion', 'momentum', 'off'] },
+      symbols: { type: 'array', items: { type: 'string', enum: ['WHSK', 'WETH'] } },
+      tradeUsd: { type: 'number', description: 'USD per trade (capped by the on-chain maxTradeUsd)' },
+      edgeBps: { type: 'integer', description: 'Min price gap vs reference before trading, in bps' },
+      slippageBps: { type: 'integer' },
+      loopSeconds: { type: 'integer', description: 'How often the agent checks prices, in seconds' },
+      minGapSeconds: { type: 'integer', description: "Min seconds between the agent's own trades. Trades the user asks for never wait for it" },
+      rationale: { type: 'string' },
     },
-  },
-  {
-    name: 'attempt_trade',
-    description: 'Send one real trade through the vault. Only when the user explicitly asks for a trade.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        symbol: { type: 'string', enum: ['WHSK', 'WETH'] },
-        side: { type: 'string', enum: ['buy', 'sell'], description: 'buy = spend USDT for the asset' },
-        usd: { type: 'number', description: 'Trade size in USD' },
-      },
-      required: ['symbol', 'side', 'usd'],
+    required: ['rationale'],
+  }),
+  fn('attempt_trade', 'Send one real trade through the vault. Only when the user explicitly asks for a trade.', {
+    type: 'object',
+    properties: {
+      symbol: { type: 'string', enum: ['WHSK', 'WETH'] },
+      side: { type: 'string', enum: ['buy', 'sell'], description: 'buy = spend USDT for the asset' },
+      amount: { type: 'number', description: 'Trade size, in the unit below' },
+      unit: { type: 'string', enum: ['usd', 'asset'], description: "'usd' for dollar amounts ($10). 'asset' for token amounts (10 HSK, 0.002 ETH): sells spend exactly that many tokens." },
     },
-  },
+    required: ['symbol', 'side', 'amount', 'unit'],
+  }),
 ];
 
-let _client: Anthropic | undefined; // lazy: the backend runs without an API key, only chat needs one
+// Lazy: the backend and agent run without a key; only chat needs one.
+let _client: OpenAI | undefined;
+function client(): OpenAI {
+  const apiKey = process.env.HOPSCOTCH_API_KEY;
+  if (!apiKey) throw new Error('Set HOPSCOTCH_API_KEY in Backend/.env to use chat.');
+  return (_client ??= new OpenAI({ baseURL: BASE_URL, apiKey }));
+}
 
 export async function chat(history: ChatTurn[], actions: ChatActions): Promise<ChatResult> {
-  const messages: Anthropic.Beta.BetaMessageParam[] = history.map((t) => ({ role: t.role, content: t.content }));
+  const messages: OpenAI.ChatCompletionMessageParam[] = [
+    { role: 'system', content: SYSTEM },
+    ...history.map((t) => ({ role: t.role, content: t.content })),
+  ];
   const out: ChatResult = { reply: '', trades: [] };
 
   for (let step = 0; step < MAX_STEPS; step++) {
-    const res = await (_client ??= new Anthropic()).beta.messages.create({
-      model: MODEL,
-      max_tokens: 16000,
-      system: SYSTEM,
-      tools,
-      messages,
-      output_config: { effort: 'low' },
-      // Retry classifier declines on Anthropic's recommended fallback model.
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-    });
-
-    if (res.stop_reason === 'refusal') return { ...out, reply: 'The model declined this request. Try rephrasing it.' };
-    const text = res.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
-    if (text) out.reply = text;
-    if (res.stop_reason !== 'tool_use' && res.stop_reason !== 'pause_turn') return out;
-
-    messages.push({ role: 'assistant', content: res.content });
-    if (res.stop_reason === 'pause_turn') continue;
-
-    const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
-    for (const call of res.content) {
-      if (call.type !== 'tool_use') continue;
-      const { content, isError } = await runTool(call.name, call.input as Record<string, unknown>, actions, out);
-      results.push({ type: 'tool_result', tool_use_id: call.id, content, is_error: isError });
+    // max_tokens sizes the credit Hopscotch holds per turn; Sonnet 5.5 thinks inside it.
+    const res = await client().chat.completions.create({ model: MODEL, max_tokens: 16000, messages, tools });
+    const choice = res.choices[0];
+    const msg = choice.message;
+    if (msg.refusal || choice.finish_reason === 'content_filter') return { ...out, reply: 'The model declined this request. Try rephrasing it.' };
+    if (msg.content?.trim()) out.reply = msg.content.trim();
+    const calls = (msg.tool_calls ?? []).filter((c) => c.type === 'function');
+    if (calls.length === 0) {
+      if (choice.finish_reason === 'length') out.reply ||= 'The reply was cut off. Ask a narrower question.';
+      return out;
     }
-    messages.push({ role: 'user', content: results });
+
+    messages.push(msg);
+    for (const call of calls) {
+      let input: Record<string, unknown>;
+      try {
+        input = JSON.parse(call.function.arguments || '{}');
+      } catch {
+        messages.push({ role: 'tool', tool_call_id: call.id, content: 'Error: arguments were not valid JSON. Send them again.' });
+        continue;
+      }
+      const { content, isError } = await runTool(call.function.name, input, actions, out);
+      messages.push({ role: 'tool', tool_call_id: call.id, content: isError ? `Error: ${content}` : content });
+    }
   }
   return { ...out, reply: out.reply || 'Stopped after too many steps.' };
 }

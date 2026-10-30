@@ -4,11 +4,14 @@ pragma solidity 0.8.38;
 import {AggregatorV3Interface} from "./interfaces/AggregatorV3Interface.sol";
 import {ISupraSValueFeed} from "./interfaces/ISupraSValueFeed.sol";
 
-/// @title SupraFeedAdapter
-/// @notice Exposes one Supra pair as an 8-decimal AggregatorV3 feed so GuardedVault can use it.
-/// @dev APRO feeds on HSK Chain are behind a read-access whitelist (contracts get "No access"),
-///      so the vault reads Supra through this adapter until APRO whitelists it; switching back is
-///      one owner call to GuardedVault.setAllowedToken(token, aproFeed).
+/**
+ * @title SupraFeedAdapter
+ * @author Aayush Gupta
+ * @notice Exposes one Supra pair as an 8-decimal AggregatorV3 feed so GuardedVault can use it.
+ * @dev APRO feeds on HSK Chain are behind a read-access whitelist (contracts get "No access"),
+ *      so the vault reads Supra through this adapter until APRO whitelists it; switching back is
+ *      one owner call to GuardedVault.setAllowedToken(token, aproFeed).
+ */
 contract SupraFeedAdapter is AggregatorV3Interface {
     ISupraSValueFeed public immutable supra;
     uint256 public immutable pairIndex;

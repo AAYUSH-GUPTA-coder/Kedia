@@ -6,7 +6,8 @@
     "dev": "node --watch src/index.ts",
     "start": "node src/index.ts",
     "test": "node --test src/*.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check:ai": "node src/check-ai.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

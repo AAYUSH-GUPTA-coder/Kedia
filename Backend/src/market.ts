@@ -1,6 +1,7 @@
 import { erc20Abi, formatUnits, type Address } from 'viem';
-import { cfg, QUOTER, token, VAULT, type Asset, type Sym } from './config.ts';
-import { feedAbi, publicClient, quoterAbi, vault } from './chain.ts';
+import { cfg, QUOTER, token, type Asset, type Sym } from './config.ts';
+import { toRaw } from './size.ts';
+import { feedAbi, publicClient, quoterAbi, vaultAt } from './chain.ts';
 
 const SYMS = Object.keys(cfg.tokens) as Sym[];
 const usd8 = (x: bigint) => Number(x) / 1e8;
@@ -13,7 +14,8 @@ export type VaultState = {
 };
 
 /** One round trip (Multicall3) for everything the agent and dashboard need from the vault. */
-export async function readVault(): Promise<VaultState> {
+export async function readVault(addr: Address): Promise<VaultState> {
+  const vault = vaultAt(addr);
   const [owner, operator, paused, policy, lastTradeAt, dayStartEquity, lossFloor, list] = await publicClient.multicall({
     allowFailure: false,
     contracts: [
@@ -30,7 +32,7 @@ export async function readVault(): Promise<VaultState> {
     contracts: SYMS.flatMap((s) => {
       const feed = (feedOf.get(token(s).address.toLowerCase()) ?? zero) as Address;
       return [
-        { address: token(s).address, abi: erc20Abi, functionName: 'balanceOf', args: [VAULT] } as const,
+        { address: token(s).address, abi: erc20Abi, functionName: 'balanceOf', args: [addr] } as const,
         // Unlisted tokens have no vault feed; read a known feed only for display.
         { address: (feed === zero ? cfg.feeds[s] : feed) as Address, abi: feedAbi, functionName: 'latestRoundData' } as const,
       ];
@@ -47,7 +49,7 @@ export async function readVault(): Promise<VaultState> {
   });
 
   return {
-    address: VAULT, owner, operator, paused,
+    address: addr, owner, operator, paused,
     policy: {
       maxTradeUsd: usd8(policy.maxTradeUsd), dailyLossCapBps: policy.dailyLossCapBps,
       maxOracleDeviationBps: policy.maxOracleDeviationBps, cooldownSeconds: policy.cooldownSeconds, maxOracleAge: policy.maxOracleAge,
@@ -89,8 +91,8 @@ export type Market = {
 export async function readMarket(sym: Asset, usd: number, oracle: number): Promise<Market> {
   const t = cfg.tokens[sym];
   const dec = t.decimals;
-  const usdtIn = BigInt(Math.floor(usd * 1e6));
-  const assetIn = BigInt(Math.floor((usd / oracle) * 10 ** Math.min(dec, 12))) * 10n ** BigInt(Math.max(dec - 12, 0));
+  const usdtIn = toRaw(usd, 6);
+  const assetIn = toRaw(usd / oracle, dec);
   const [assetOut, usdtOut, exchange] = await Promise.all([
     quote('USDT', sym, usdtIn, t.fee), quote(sym, 'USDT', assetIn, t.fee), exchangeMid(t.exchangeSymbol),
   ]);

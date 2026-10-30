@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { decodeFunctionData } from "viem";
 import { guardedVaultAbi } from "@kedia/abi/GuardedVault";
-import { proposalCalls } from "./policy.ts";
+import { parsePolicyForm, proposalCalls, toPolicyForm } from "./policy.ts";
 
 const A = (n: number) => `0x${n.toString(16).padStart(40, "0")}` as `0x${string}`;
 const tokens = [
@@ -25,4 +25,13 @@ test("halve risk and stop trading WHSK encodes setPolicy then a disallow", () =>
 test("unchanged token list only sets policy, missing feed is an error", () => {
   assert.equal(proposalCalls({ ...base, allowedTokens: ["USDT", "WHSK"] }, tokens, {}).length, 1);
   assert.throws(() => proposalCalls({ ...base, allowedTokens: ["USDT", "WHSK", "WETH"] }, tokens, {}), /no price feed/);
+});
+
+test("edit form round-trips to contract units and rejects out-of-range values", () => {
+  const form = toPolicyForm(base, ["USDT"]);
+  assert.deepEqual(parsePolicyForm(form), { policy: { ...base, allowedTokens: ["USDT"] } });
+  assert.deepEqual(parsePolicyForm({ ...form, dailyLossCapPct: "2.5", maxOracleAgeHours: "0.5" }), { policy: { ...base, dailyLossCapBps: 250, maxOracleAge: 1800, allowedTokens: ["USDT"] } });
+  for (const bad of [{ maxTradeUsd: "0" }, { maxTradeUsd: "" }, { dailyLossCapPct: "101" }, { cooldownSeconds: "1.5" }, { maxOracleAgeHours: "0" }]) {
+    assert.ok("error" in parsePolicyForm({ ...form, ...bad }), JSON.stringify(bad));
+  }
 });

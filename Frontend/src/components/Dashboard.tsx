@@ -1,80 +1,294 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useChainId, useConnect, useConnection, useConnectors, useDisconnect, useSwitchChain } from "wagmi";
-import { hashkey } from "wagmi/chains";
-import { api, usd } from "@/lib/api";
-import { explorerAddr } from "@/lib/config";
+import { api, pct, usd, type EquityPoint, type LogEntry, type State } from "@/lib/api";
+import { chain, DEMO_VAULT, explorerAddr, TESTNET } from "@/lib/config";
+import { blocked } from "@/lib/protection";
+import { useMyVault } from "@/lib/useMyVault";
 import { Chat } from "./Chat";
+import { CreateVault } from "./CreateVault";
 import { Decisions } from "./Decisions";
+import { EquityChart } from "./EquityChart";
+import { GuardrailDemo } from "./GuardrailDemo";
 import { PolicyPanel } from "./PolicyPanel";
 import { Positions } from "./Positions";
 import { TradeLog } from "./TradeLog";
-import { Button, Stat } from "./ui";
+import { Button, Dot, label, Tag } from "./ui";
+
+/** The Kedia mark (brand/svg/kedia-mark-transparent.svg): a K whose arms stop just short of the vault wall. */
+function Mark() {
+  return (
+    <svg viewBox="6 6 52 52" aria-hidden className="size-6 shrink-0">
+      <path fill="var(--color-fg)" fillRule="evenodd" d="M21.5 6H42.5A15.5 15.5 0 0 1 58 21.5V42.5A15.5 15.5 0 0 1 42.5 58H21.5A15.5 15.5 0 0 1 6 42.5V21.5A15.5 15.5 0 0 1 21.5 6ZM21.5 11A10.5 10.5 0 0 0 11 21.5V42.5A10.5 10.5 0 0 0 21.5 53H42.5A10.5 10.5 0 0 0 53 42.5V21.5A10.5 10.5 0 0 0 42.5 11Z" />
+      <path fill="var(--color-accent)" d="M19 16H27.5V31.6L47 16V24.96L38.2 32L47 39.04V48L27.5 32.4V48H19Z" />
+    </svg>
+  );
+}
+
+function ConnectButton() {
+  const connectors = useConnectors();
+  const connect = useConnect();
+  return <Button variant="primary" onClick={() => connectors[0] && connect.mutate({ connector: connectors[0] })}>Connect wallet</Button>;
+}
 
 function Wallet({ owner }: { owner?: string }) {
   const { address, isConnected } = useConnection();
-  const connectors = useConnectors();
-  const connect = useConnect();
   const disconnect = useDisconnect();
   const chainId = useChainId();
   const switchChain = useSwitchChain();
-  if (!isConnected) return <Button variant="primary" onClick={() => connectors[0] && connect.mutate({ connector: connectors[0] })}>Connect owner wallet</Button>;
+  if (!isConnected) return <ConnectButton />;
   const isOwner = owner && address?.toLowerCase() === owner.toLowerCase();
   return (
-    <div className="flex items-center gap-2 text-xs">
-      {chainId !== hashkey.id && <Button variant="danger" onClick={() => switchChain.mutate({ chainId: hashkey.id })}>Switch to HSK Chain</Button>}
-      <span className={`rounded px-2 py-1 ${isOwner ? "bg-emerald-500/15 text-emerald-300" : "bg-white/10 text-white/60"}`}>{isOwner ? "owner" : "not owner"} · {address?.slice(0, 6)}…{address?.slice(-4)}</span>
+    <div className="flex items-center gap-2">
+      {chainId !== chain.id && <Button variant="danger" onClick={() => switchChain.mutate({ chainId: chain.id })}>Switch to {chain.name}</Button>}
+      <span className="hidden h-8 items-center gap-2 rounded-md border border-line px-2.5 text-xs text-muted sm:inline-flex">
+        <Dot tone={isOwner ? "good" : "muted"} />{isOwner ? "Owner" : "Read-only"}
+        <span className="font-mono text-fg">{address?.slice(0, 6)}…{address?.slice(-4)}</span>
+      </span>
       <Button onClick={() => disconnect.mutate()}>Disconnect</Button>
     </div>
   );
 }
 
+const PILLARS: [string, string][] = [
+  ["Your vault", "Your money sits in a contract only your wallet owns. Only you can deposit, withdraw or pause."],
+  ["Your rules, on-chain", "Max trade size, a daily stop-loss, allowed tokens and a price check. A trade that breaks one is reverted, not filled."],
+  ["Its own agent", "A dedicated agent wallet trades for you on HSKSwap. It can never withdraw, and you steer it in plain English."],
+];
+
+/** First thing a visitor without a wallet sees: the idea, how it works, and how to start. */
+function Hero() {
+  return (
+    <section aria-labelledby="hero-title" className="relative overflow-hidden rounded-xl border border-line bg-panel">
+      <div aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-accent" />
+      <div className="grid gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-12">
+        <div className="flex flex-col justify-center">
+          <div><Tag tone="accent">{TESTNET ? "Live on HSK Chain testnet · test funds" : "AI agent trading on HSK Chain"}</Tag></div>
+          <h2 id="hero-title" className="mt-4 text-3xl font-semibold leading-tight tracking-tight text-balance sm:text-4xl">
+            An AI trader that <span className="text-accent">can&apos;t break your rules.</span>
+          </h2>
+          <p className="mt-4 max-w-xl text-pretty text-muted">
+            Letting an AI trade usually means handing it your wallet key, and hoping a prompt keeps it in line. Kedia keeps your money in your own vault and lets the agent trade it only inside limits the smart contract enforces on every trade.
+          </p>
+          <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <ConnectButton />
+            <span className="text-sm text-faint">Then create your vault in one transaction. Below is a live demo vault, read-only.</span>
+          </div>
+        </div>
+        <ol className="grid content-center gap-3">
+          {PILLARS.map(([title, body], i) => (
+            <li key={title} className="flex gap-4 rounded-lg border border-line bg-canvas/40 p-4">
+              <span className="font-mono text-sm text-accent tabular-nums">0{i + 1}</span>
+              <div>
+                <h3 className="text-sm font-medium">{title}</h3>
+                <p className="mt-1 text-sm leading-relaxed text-muted">{body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
+const HIDE_STRIP = "kedia:hide-intro-strip";
+
+/** The hero's message in one row for connected users, so it stays in every screenshot without pushing the vault down. */
+function HeroStrip() {
+  // Starts shown and reads the saved choice after mount, so server and client render the same HTML.
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    try { setHidden(localStorage.getItem(HIDE_STRIP) === "1"); } catch { /* storage blocked: keep showing it */ }
+  }, []);
+  if (hidden) return null;
+  const hide = () => {
+    setHidden(true);
+    try { localStorage.setItem(HIDE_STRIP, "1"); } catch { /* storage blocked: hidden for this visit only */ }
+  };
+  return (
+    <section aria-label="About Kedia" className="relative flex flex-wrap items-center gap-x-6 gap-y-2 overflow-hidden rounded-xl border border-line bg-panel py-3 pr-3 pl-5">
+      <div aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-accent" />
+      <p className="text-sm font-semibold tracking-tight">An AI trader that <span className="text-accent">can&apos;t break your rules.</span>{TESTNET && <span className="ml-2 font-normal text-faint">Testnet, test funds</span>}</p>
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+        {PILLARS.map(([title], i) => (
+          <li key={title} className="inline-flex items-center gap-1.5"><span className="font-mono text-accent tabular-nums">0{i + 1}</span>{title}</li>
+        ))}
+      </ul>
+      <button type="button" onClick={hide} aria-label="Hide this introduction" className="ml-auto rounded px-2 py-1 text-xs text-faint transition-colors hover:text-fg focus-visible:outline-2 focus-visible:outline-accent">Hide</button>
+    </section>
+  );
+}
+
+function Status({ s }: { s: State }) {
+  const ago = s.agent.lastTickAt ? Math.round((Date.now() - s.agent.lastTickAt) / 1000) : null;
+  const [tone, text] = s.vault.paused ? (["bad", "Paused"] as const) : s.agent.simulateOnly ? (["warn", "Simulate only"] as const) : (["good", "Agent live"] as const);
+  return (
+    <span className="inline-flex items-center gap-2 text-xs text-muted">
+      <span className="relative inline-flex">
+        {tone === "good" && <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-up/60 motion-reduce:hidden" />}
+        <Dot tone={tone} />
+      </span>
+      {text}{ago !== null && <span className="font-mono text-faint">checked {ago}s ago</span>}
+    </span>
+  );
+}
+
+/** How much of today's loss budget is left: a track from the floor (trading halts) to the day-start equity. */
+function StopLoss({ s }: { s: State }) {
+  const { dayStartEquity: start, lossFloor: floor, equity, policy } = s.vault;
+  const cap = <span className="text-xs text-faint">{pct(policy.dailyLossCapBps)} daily cap</span>;
+  if (!floor) {
+    return (
+      <div>
+        <div className="flex items-baseline justify-between gap-3"><span className={label}>Stop-loss</span>{cap}</div>
+        <div className="mt-2 text-2xl font-semibold tracking-tight text-muted">Not armed</div>
+        <p className="mt-1 text-xs text-faint">The floor is set at the day&apos;s first trade.</p>
+      </div>
+    );
+  }
+  const left = Math.min(1, Math.max(0, (equity - floor) / (start - floor)));
+  const tone = left < 0.2 ? "bg-down" : left < 0.5 ? "bg-warn" : "bg-up";
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-3"><span className={label}>Stop-loss headroom</span>{cap}</div>
+      <div className={`mt-2 text-2xl font-semibold tabular-nums tracking-tight ${equity < floor ? "text-down" : ""}`}>{usd(Math.max(0, equity - floor))}</div>
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-raised" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(left * 100)} aria-label="Daily loss budget remaining">
+        <div className={`h-full rounded-full transition-[width] duration-500 ${tone}`} style={{ width: `${Math.max(2, left * 100)}%` }} />
+      </div>
+      <div className="mt-2 flex justify-between gap-3 font-mono text-2xs text-faint tabular-nums">
+        <span>Floor {usd(floor)}</span><span>Day start {usd(start)}</span>
+      </div>
+    </div>
+  );
+}
+
+/** What the vault has refused so far, so the guardrails' value is visible next to P&L. */
+function Protected({ s, log }: { s: State; log: LogEntry[] }) {
+  const b = blocked(log, (sym) => s.vault.positions.find((p) => p.sym === sym)?.price ?? 0);
+  // Max trade size, daily loss cap, price band, oracle freshness and the token list, plus the cooldown when it is on.
+  const rules = 5 + (s.vault.policy.cooldownSeconds > 0 ? 1 : 0);
+  return (
+    <>
+      <span className={label}>Protection</span>
+      {b.count ? (
+        <>
+          <div className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-accent">{usd(b.usd)}</div>
+          <p className="mt-2 text-xs text-faint">Blocked: {b.count} rule-breaking trade{b.count === 1 ? "" : "s"} refused on-chain</p>
+        </>
+      ) : (
+        <>
+          <div className="mt-2 text-2xl font-semibold tracking-tight">{rules} rules</div>
+          <p className="mt-2 text-xs text-faint">Checked on-chain on every trade. Nothing has broken one yet.</p>
+        </>
+      )}
+    </>
+  );
+}
+
+function Summary({ s, log, equity, mine }: { s: State; log: LogEntry[]; equity: EquityPoint[]; mine: boolean }) {
+  const { pnlUsd, netDepositsUsd, dayChangePct } = s.pnl;
+  const sign = (x: number) => (x >= 0 ? "+" : "−");
+  return (
+    <section className="rounded-xl border border-line bg-panel" aria-label="Vault summary">
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line px-4 py-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
+          <span className="font-medium">{mine ? "Your vault" : "Demo vault"}</span>
+          <a className="font-mono text-xs text-muted underline decoration-line-strong underline-offset-2 transition-colors hover:text-fg" href={explorerAddr(s.vault.address)} target="_blank" rel="noreferrer">
+            {s.vault.address.slice(0, 8)}…{s.vault.address.slice(-4)}
+          </a>
+          {!mine && <Tag>Read-only</Tag>}
+        </div>
+        <Status s={s} />
+      </header>
+      <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-12 lg:gap-0">
+        <div className="lg:col-span-3 lg:pr-6">
+          <span className={label}>Equity</span>
+          <div className="mt-2 text-4xl font-semibold tabular-nums tracking-tight sm:text-5xl">{usd(s.vault.equity)}</div>
+          <p className="mt-2 text-xs text-faint">Net deposits <span className="font-mono text-muted">{usd(netDepositsUsd)}</span> · marked at oracle prices</p>
+        </div>
+        <div className="border-t border-line pt-6 lg:col-span-3 lg:border-t-0 lg:border-l lg:px-6 lg:pt-0">
+          <Protected s={s} log={log} />
+        </div>
+        <div className="border-t border-line pt-6 lg:col-span-2 lg:border-t-0 lg:border-l lg:px-6 lg:pt-0">
+          <span className={label}>P&amp;L</span>
+          <div className={`mt-2 text-2xl font-semibold tabular-nums tracking-tight ${pnlUsd >= 0 ? "text-up" : "text-down"}`}>{sign(pnlUsd)}{usd(Math.abs(pnlUsd))}</div>
+          <p className="mt-2 text-xs text-faint">
+            {s.vault.dayStartEquity ? <>Today <span className={`font-mono ${dayChangePct >= 0 ? "text-up" : "text-down"}`}>{sign(dayChangePct)}{Math.abs(dayChangePct).toFixed(2)}%</span></> : "No trades today"}
+          </p>
+        </div>
+        <div className="border-t border-line pt-6 lg:col-span-4 lg:border-t-0 lg:border-l lg:pl-6 lg:pt-0">
+          <StopLoss s={s} />
+        </div>
+      </div>
+      <div className="border-t border-line p-4 sm:px-6">
+        <span className={label}>Vault value over time</span>
+        <div className="mt-3"><EquityChart points={equity} log={log} /></div>
+      </div>
+    </section>
+  );
+}
+
 export function Dashboard() {
-  const state = useQuery({ queryKey: ["state"], queryFn: api.state, refetchInterval: 5000 });
-  const log = useQuery({ queryKey: ["log"], queryFn: api.log, refetchInterval: 5000 });
   const { address } = useConnection();
+  const mine = useMyVault();
+  // A wallet with a vault sees its own; everyone else sees the demo vault read-only.
+  const target = mine.vault ?? DEMO_VAULT;
+  const state = useQuery({ queryKey: ["state", target], queryFn: () => api.state(target), refetchInterval: 5000 });
+  const log = useQuery({ queryKey: ["log", target], queryFn: () => api.log(target), refetchInterval: 5000 });
+  const equity = useQuery({ queryKey: ["equity", target], queryFn: () => api.equity(target), refetchInterval: 30_000 });
   const s = state.data;
   const refresh = () => { void state.refetch(); void log.refetch(); };
   const isOwner = !!s && !!address && address.toLowerCase() === s.vault.owner.toLowerCase();
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold">Guarded Trader</h1>
-          <p className="text-xs text-white/50">
-            AI agent trading on HSKSwap inside limits the vault enforces on-chain.
-            {s && <> Vault <a className="font-mono text-sky-400 hover:underline" href={explorerAddr(s.vault.address)} target="_blank" rel="noreferrer">{s.vault.address.slice(0, 10)}…</a></>}
-          </p>
+    <div className="min-h-dvh">
+      <header className="sticky top-0 z-10 border-b border-line bg-canvas/85 backdrop-blur-md">
+        <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <Mark />
+            <h1 className="font-semibold tracking-tight">Kedia</h1>
+            <p className="hidden truncate text-sm text-faint md:block">An AI agent trading on HSKSwap inside limits the vault enforces on-chain.</p>
+          </div>
+          <Wallet owner={s?.vault.owner} />
         </div>
-        <Wallet owner={s?.vault.owner} />
       </header>
 
-      {state.error && <p className="mb-4 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-300">Backend unreachable: {state.error.message}. Start it with <code>pnpm backend</code>.</p>}
-      {!s && !state.error && <p className="text-white/50">Loading vault…</p>}
+      <main className="mx-auto w-full max-w-7xl space-y-4 px-4 py-6 sm:px-6">
+        {address ? <HeroStrip /> : <Hero />}
+        {mine.checked && !mine.vault && <CreateVault onCreated={() => void mine.refetch()} />}
 
-      {s && (
-        <>
-          <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Stat label="Equity (oracle-marked)" value={usd(s.vault.equity)} sub={`Net deposits ${usd(s.pnl.netDepositsUsd)}`} />
-            <Stat label="P&L" value={`${s.pnl.pnlUsd >= 0 ? "+" : ""}${usd(s.pnl.pnlUsd)}`} tone={s.pnl.pnlUsd >= 0 ? "good" : "bad"} sub={s.vault.dayStartEquity ? `Today ${s.pnl.dayChangePct.toFixed(2)}%` : "No trades today"} />
-            <Stat label="Stop-loss floor today" value={s.vault.lossFloor ? usd(s.vault.lossFloor) : "–"} sub={s.vault.lossFloor ? `Headroom ${usd(s.vault.equity - s.vault.lossFloor)}` : "Set at the day's first trade"} tone={s.vault.lossFloor && s.vault.equity < s.vault.lossFloor ? "bad" : undefined} />
-            <Stat label="Agent gas balance" value={`${s.agent.operatorGasHsk.toFixed(3)} HSK`} sub="Operator key holds gas only" tone={s.agent.operatorGasHsk < 0.5 ? "bad" : undefined} />
+        {state.error && <p className="rounded-lg border border-down/30 bg-down/10 px-4 py-3 text-sm text-down">Backend unreachable: {state.error.message}. Start it with <code className="font-mono">pnpm backend</code>.</p>}
+        {!s && !state.error && (
+          <div className="grid gap-4 lg:grid-cols-12" aria-busy aria-label="Loading vault">
+            <div className="h-40 animate-pulse rounded-xl border border-line bg-panel lg:col-span-12" />
+            <div className="h-72 animate-pulse rounded-xl border border-line bg-panel lg:col-span-8" />
+            <div className="h-72 animate-pulse rounded-xl border border-line bg-panel lg:col-span-4" />
           </div>
-          <div className="grid gap-6 lg:grid-cols-[1fr_26rem]">
-            <div className="space-y-6">
-              <Positions s={s} />
-              <Decisions s={s} />
-              <TradeLog log={log.data ?? []} />
+        )}
+
+        {s && (
+          <>
+            <Summary s={s} log={log.data ?? []} equity={equity.data ?? []} mine={!!mine.vault} />
+            <div className="grid gap-4 lg:grid-cols-12">
+              <div className="min-w-0 space-y-4 lg:col-span-8 lg:flex lg:flex-col lg:gap-4 lg:space-y-0">
+                <Positions s={s} />
+                <Decisions s={s} isOwner={isOwner} refresh={refresh} />
+                {/* On wide screens the log fills down to the bottom of the right column and scrolls inside, so both columns end level. */}
+                <div className="lg:relative lg:min-h-80 lg:flex-1">
+                  <div className="lg:absolute lg:inset-0"><TradeLog log={log.data ?? []} /></div>
+                </div>
+              </div>
+              <aside className="min-w-0 space-y-4 lg:col-span-4">
+                <GuardrailDemo s={s} isOwner={isOwner} refresh={refresh} />
+                <Chat s={s} isOwner={isOwner} needsVault={mine.checked && !mine.vault} refresh={refresh} />
+                <PolicyPanel s={s} isOwner={isOwner} refresh={refresh} />
+              </aside>
             </div>
-            <div className="space-y-6">
-              <Chat s={s} isOwner={isOwner} refresh={refresh} />
-              <PolicyPanel s={s} isOwner={isOwner} refresh={refresh} />
-            </div>
-          </div>
-        </>
-      )}
-    </main>
+          </>
+        )}
+      </main>
+    </div>
   );
 }

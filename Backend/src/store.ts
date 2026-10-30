@@ -1,9 +1,18 @@
-import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
+import type { Address } from 'viem';
 import type { Asset } from './config.ts';
 import type { Mode } from './strategy.ts';
 
-const STATE = new URL('../state.json', import.meta.url);
-const LOG = new URL('../trades.json', import.meta.url);
+const DATA = new URL('../data/', import.meta.url);
+
+/** Backend/data/<vault>/<name>. The address is checked so it can never escape the data folder. */
+function file(vault: Address, name: string): URL {
+  const v = vault.toLowerCase();
+  if (!/^0x[0-9a-f]{40}$/.test(v)) throw new Error(`bad vault address ${vault}`);
+  const dir = new URL(`${v}/`, DATA);
+  mkdirSync(dir, { recursive: true });
+  return new URL(name, dir);
+}
 
 function readJson<T>(file: URL, fallback: T): T {
   return existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as T) : fallback;
@@ -16,16 +25,16 @@ function writeJson(file: URL, data: unknown) {
 }
 
 /** Off-chain knobs the user changes by chat without signing. On-chain limits live in the vault. */
-export type Strategy = { mode: Mode; symbols: Asset[]; tradeUsd: number; edgeBps: number; slippageBps: number; loopSeconds: number };
-export const DEFAULT_STRATEGY: Strategy = { mode: 'meanReversion', symbols: ['WHSK', 'WETH'], tradeUsd: 5, edgeBps: 60, slippageBps: 50, loopSeconds: 30 };
+export type Strategy = { mode: Mode; symbols: Asset[]; tradeUsd: number; edgeBps: number; slippageBps: number; loopSeconds: number; minGapSeconds: number };
+export const DEFAULT_STRATEGY: Strategy = { mode: 'meanReversion', symbols: ['WHSK', 'WETH'], tradeUsd: 5, edgeBps: 60, slippageBps: 50, loopSeconds: 30, minGapSeconds: 300 };
 
-export const loadStrategy = (): Strategy => ({ ...DEFAULT_STRATEGY, ...readJson<Partial<Strategy>>(STATE, {}) });
+export const loadStrategy = (vault: Address): Strategy => ({ ...DEFAULT_STRATEGY, ...readJson<Partial<Strategy>>(file(vault, 'state.json'), {}) });
 
-export function saveStrategy(patch: Partial<Strategy>): Strategy {
-  const s = { ...loadStrategy(), ...patch };
+export function saveStrategy(vault: Address, patch: Partial<Strategy>): Strategy {
+  const s = { ...loadStrategy(vault), ...patch };
   const bad = validateStrategy(s);
   if (bad) throw new Error(bad);
-  writeJson(STATE, s);
+  writeJson(file(vault, 'state.json'), s);
   return s;
 }
 
@@ -36,6 +45,7 @@ export function validateStrategy(s: Strategy): string | null {
   if (!(s.edgeBps >= 0 && s.edgeBps <= 2000)) return 'edgeBps must be in [0, 2000]';
   if (!(s.slippageBps >= 0 && s.slippageBps <= 1000)) return 'slippageBps must be in [0, 1000]';
   if (!(s.loopSeconds >= 5 && s.loopSeconds <= 3600)) return 'loopSeconds must be in [5, 3600]';
+  if (!(Number.isInteger(s.minGapSeconds) && s.minGapSeconds >= 0 && s.minGapSeconds <= 86_400)) return 'minGapSeconds must be an integer in [0, 86400]';
   return null;
 }
 
@@ -50,9 +60,20 @@ export type LogEntry = {
   reason: string;
 };
 
+/** One point on the dashboard's value chart. floorUsd is 0 until the day's stop-loss is armed. */
+export type EquityPoint = { ts: number; equityUsd: number; floorUsd: number };
+const MAX_POINTS = 2880; // two days at one point a minute
+export const readEquity = (vault: Address): EquityPoint[] => readJson<EquityPoint[]>(file(vault, 'equity.json'), []);
+/** Records at most one point a minute, so the file stays small whatever the agent's check interval. */
+export function appendEquity(vault: Address, p: EquityPoint) {
+  const points = readEquity(vault);
+  if (points.length && p.ts - points[points.length - 1].ts < 60_000) return;
+  writeJson(file(vault, 'equity.json'), [...points, p].slice(-MAX_POINTS));
+}
+
 const MAX_LOG = 500;
-export const readLog = (): LogEntry[] => readJson<LogEntry[]>(LOG, []);
-export function appendLog(e: LogEntry) {
-  writeJson(LOG, [e, ...readLog()].slice(0, MAX_LOG));
-  console.log(`[${e.kind}] ${e.source} ${e.side} ${e.sym}: ${e.error ? `${e.error.name}(${e.error.args.join(', ')})` : e.reason}${e.txHash ? ` tx=${e.txHash}` : ''}`);
+export const readLog = (vault: Address): LogEntry[] => readJson<LogEntry[]>(file(vault, 'trades.json'), []);
+export function appendLog(vault: Address, e: LogEntry) {
+  writeJson(file(vault, 'trades.json'), [e, ...readLog(vault)].slice(0, MAX_LOG));
+  console.log(`[${vault.slice(0, 8)}] [${e.kind}] ${e.source} ${e.side} ${e.sym}: ${e.error ? `${e.error.name}(${e.error.args.join(', ')})` : e.reason}${e.txHash ? ` tx=${e.txHash}` : ''}`);
 }
