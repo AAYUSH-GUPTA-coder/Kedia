@@ -13,6 +13,8 @@ Kedia is an autonomous trading agent for **HSKSwap** on **HSK Chain**. Around th
 
 Entry for the **HSK Chain Horizon Hackathon · Mumbai, Track 1: AI Agent Trading**.
 
+![The live Kedia dashboard on HSK Chain testnet: equity, stop-loss headroom, value over time, positions and the agent's reasoning per token](docs/images/dashboard.png)
+
 ## At a glance
 
 | | |
@@ -91,6 +93,10 @@ The same steps work on HSK testnet (test tokens), on the local mainnet fork (fak
 3. Watch the agent trade. Each trade and each rejection appears in the log with an explorer link and the reason.
 4. In chat, type "halve my risk and stop trading WETH". Review the before/after table and press **Sign & apply**. One multicall transaction updates the on-chain rules. WETH now shows as blocked.
 5. Press **Try to buy** in the **Try to break the rules** card. It asks the agent for 10× your max trade. The transaction is sent and the vault reverts it on-chain with `TradeTooLarge`. The explorer link shows the failed transaction.
+
+![A failed executeSwap on the HSK testnet explorer, reverted by the vault with TradeTooLarge](docs/images/guardrail-rejection.png)
+
+A real rejection on HSK testnet: a chat request to buy $29.96 of WETH, refused because the vault's max trade was $10. The explorer shows the raw values with 8 decimals. [Open the transaction](https://testnet-explorer.hskchain.net/tx/0x0579fd0b6d262a6b82b172c9edf22deaa2725fb62e86dedd790dc8de0e55dbbb).
 
 ## Status: implemented vs planned
 
@@ -208,24 +214,7 @@ The agent trades in full steps of its per-trade size, capped just under the vaul
 
 Before sending, the agent simulates the trade, so a trade the vault would refuse is logged with its reason and costs no gas. When it does send, the vault runs these checks in order:
 
-```mermaid
-flowchart TD
-    Start(["Agent calls executeSwap"]) --> A{"Called by the operator,<br/>vault not paused?"}
-    A -- no --> RA["revert NotOperator / EnforcedPause"]
-    A -- yes --> B{"Both tokens on<br/>your allowed list?"}
-    B -- no --> RB["revert TokenNotAllowed"]
-    B -- yes --> C{"Oracle price fresh,<br/>trade under max size?"}
-    C -- no --> RC["revert StaleOracle / TradeTooLarge"]
-    C -- yes --> D{"Cooldown since<br/>last trade passed?"}
-    D -- no --> RD["revert CooldownActive"]
-    D -- yes --> E["First trade today?<br/>Record today's starting equity"]
-    E --> F["Swap on HSKSwap"]
-    F --> G{"Fill within the price band<br/>of the oracle value?"}
-    G -- no --> RG["revert ExecutionPriceDeviates<br/>(swap is undone)"]
-    G -- yes --> H{"Equity still above<br/>today's stop-loss floor?"}
-    H -- no --> RH["revert DailyLossCapBreached<br/>(swap is undone)"]
-    H -- yes --> OK(["Trade kept, TradeExecuted"])
-```
+![The seven checks GuardedVault runs on every executeSwap, and the revert each one raises](docs/images/trade-checks.png)
 
 The last two checks run after the swap, so a revert undoes the whole trade. That is what makes them hard limits: a thin or manipulated pool cannot fill you far from the market, and no single trade can push you past your daily loss cap.
 
@@ -333,6 +322,10 @@ sequenceDiagram
     Vault-->>You: rules updated on-chain
     Note over Vault: From the next trade on,<br/>WETH is refused and the $5 cap applies
 ```
+
+<p align="center"><img src="docs/images/chat-proposal.png" width="560" alt="The chat answering 'Halve my risk and stop trading WETH' with a before-and-after policy table and a Sign &amp; apply button"></p>
+
+<p align="center"><sub>A real reply from the chat, on a local copy of HSK mainnet.</sub></p>
 
 The model only proposes. Rules change on-chain only when the owner wallet signs, because the agent's key cannot call `setPolicy`. Agent settings, such as "switch to momentum with $3 trades", are proposed the same way and apply when you press **Confirm**; they live off-chain, so they need no signature, and the vault's rules still bound every trade.
 
