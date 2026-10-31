@@ -122,7 +122,8 @@ function HeroStrip() {
 }
 
 function Status({ s }: { s: State }) {
-  const ago = s.agent.lastTickAt ? Math.round((Date.now() - s.agent.lastTickAt) / 1000) : null;
+  // lastTickAt is the server's clock; a browser clock running slightly behind it would show a negative age.
+  const ago = s.agent.lastTickAt ? Math.max(0, Math.round((Date.now() - s.agent.lastTickAt) / 1000)) : null;
   const [tone, text] = s.vault.paused ? (["bad", "Paused"] as const) : s.agent.simulateOnly ? (["warn", "Simulate only"] as const) : (["good", "Agent live"] as const);
   return (
     <span className="inline-flex items-center gap-2 text-xs text-muted">
