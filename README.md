@@ -7,9 +7,9 @@
 
 # Kedia
 
-**An AI trading agent you can hand your money to, because it cannot break your rules.**
+**An AI agent that trades for profit 24/7, inside safety limits it can never break.**
 
-Kedia is an autonomous trading agent for **HSKSwap** on **HSK Chain**. Your funds sit in a vault contract that only you own. The agent gets its own wallet that can do exactly one thing: ask your vault for a swap. The vault checks every swap against limits you set, on-chain, and reverts anything that breaks them. You steer it in plain English and sign the changes that matter.
+Kedia is an autonomous trading agent for **HSKSwap** on **HSK Chain**. Around the clock, it compares HSKSwap prices with the live **HashKey Exchange** order book and trades the gap: it buys when a token is cheaper on-chain and sells when it is dearer, but only when the gap is bigger than fees and price impact. Your funds sit in a vault contract that only you own. The agent gets its own wallet that can do exactly one thing: ask your vault for a swap. The vault checks every swap against limits you set, on-chain, and reverts anything that breaks them. You steer it in plain English and sign the changes that matter.
 
 Entry for the **HSK Chain Horizon Hackathon · Mumbai, Track 1: AI Agent Trading**.
 
@@ -184,12 +184,16 @@ There are three roles, and each can do only its own job:
 
 | Layer | What |
 |---|---|
+| Chain | HSK Chain testnet (id 133) for the live demo, mainnet (id 177) next. On testnet, Kedia's own Uniswap V3 deployment stands in for HSKSwap |
 | Contracts | Solidity 0.8.38, Foundry, OpenZeppelin `Ownable`, `Pausable`, `ReentrancyGuardTransient` (Cancun transient storage), `Multicall`. Targets `evm_version = cancun` because HSK Chain has not activated Osaka |
 | DEX | HSKSwap SwapRouter02 `exactInputSingle` and QuoterV2 |
 | Oracle | Supra on-chain storage through `SupraFeedAdapter`, exposing Chainlink's `AggregatorV3Interface` so feeds are swappable per token |
-| Backend | Node 24, viem 2, plain `http` server, file-backed per-vault logs |
+| Market data | HashKey Exchange public API, best bid and ask from `bookTicker`, used as the reference price. Falls back to the oracle if the API is down |
+| Backend | Node 24, viem 2, plain `http` server, trading loop every 30 seconds, file-backed per-vault logs |
 | AI | Claude Sonnet 5.5 through the Hopscotch Labs gateway (OpenAI-compatible endpoint), four tools, max 8 tool steps per turn |
-| Frontend | Next.js 16, React 19, wagmi 3, Sign-In with Ethereum (EIP-4361) |
+| Frontend | Next.js 16, React 19, wagmi 3, Tailwind CSS 4, TanStack Query (live polling every 5 seconds), react-markdown for chat replies, Sign-In with Ethereum (EIP-4361) |
+| Hosting | Dashboard on Vercel. Backend and trading loop on Render's free plan, kept awake by an UptimeRobot ping to `/health` every 5 minutes |
+| Tooling | pnpm workspaces monorepo, TypeScript throughout |
 
 ### What happens on every trade
 
