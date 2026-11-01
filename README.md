@@ -26,7 +26,7 @@ Entry for the **HSK Chain Horizon Hackathon · Mumbai, Track 1: AI Agent Trading
 | **Chain** | Live on HSK Chain testnet (id 133), as the organisers allow for the hackathon; mainnet (id 177) follows. HSKSwap SwapRouter02 + QuoterV2 (on testnet, the Uniswap V3 contracts HSKSwap forks), Supra price oracle, HashKey Exchange public API. |
 | **Status** | Live at [kedia-nu.vercel.app](https://kedia-nu.vercel.app) on HSK testnet. 36 Foundry tests (31 on a fork of HSK mainnet with real HSKSwap pools, 5 for the testnet stack) plus 10 unit tests, all passing. See [Status](#status-implemented-vs-planned). |
 | **Code** | [github.com/AAYUSH-GUPTA-coder/Kedia](https://github.com/AAYUSH-GUPTA-coder/Kedia). ~3,300 lines across Solidity, backend, AI and frontend, all written during the hackathon (first commit 25 Oct 2026). |
-| **Demo video** | _Link added at submission._ |
+| **Demo video** | [youtu.be/J6QaVf1tYr8](https://youtu.be/J6QaVf1tYr8) (2:32): the dashboard, a chat proposal signed on-chain, and a trade the vault refuses. |
 | **Live dashboard** | [kedia-nu.vercel.app](https://kedia-nu.vercel.app) on HSK testnet. Visitors without a wallet see the demo vault read-only. |
 
 ## Why Kedia is different
@@ -106,7 +106,7 @@ A real rejection on HSK testnet: a chat request to buy $29.96 of WETH, refused b
 | Live on HSK testnet: contracts verified on the testnet explorer, dashboard on Vercel, always-on agent backend on Render | |
 | Testnet stack: test tokens with a faucet, official Uniswap V3 pools, one-command deploy, 5 local tests | |
 | One vault per wallet, one gas-only agent wallet per vault, keys derived from one backend secret | |
-| Mean-reversion and momentum strategies, per-vault agent settings | Demo video |
+| Mean-reversion and momentum strategies, per-vault agent settings | |
 | Dashboard: create vault, deposit/withdraw, positions, P&L, equity chart, stop-loss floor, trade log, agent reasoning, agent gas top-up and recovery | Platform fee (none today) |
 | Chat with tool calls: read state, propose policy, propose strategy, attempt a trade | Upgradeable vaults, more tokens, more strategies |
 | Sign-In with Ethereum sessions; the backend acts only on the vault your wallet owns | Durable sessions and persistent price history across backend restarts |
