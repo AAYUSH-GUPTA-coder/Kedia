@@ -9,6 +9,8 @@
 
 **An AI agent that trades for profit 24/7, inside safety limits it can never break.**
 
+> **Kedia is closed.** The hosted agent no longer trades and [kedia-nu.vercel.app](https://kedia-nu.vercel.app) now shows a static page about the project. The code, tests and deploy steps below still work if you want to run it yourself.
+
 Kedia is an autonomous trading agent for **HSKSwap** on **HSK Chain**. Around the clock, it compares HSKSwap prices with the live **HashKey Exchange** order book and trades the gap: it buys when a token is cheaper on-chain and sells when it is dearer, but only when the gap is bigger than fees and price impact. Your funds sit in a vault contract that only you own. The agent gets its own wallet that can do exactly one thing: ask your vault for a swap. The vault checks every swap against limits you set, on-chain, and reverts anything that breaks them. You steer it in plain English and sign the changes that matter.
 
 Entry for the **HSK Chain Horizon Hackathon · Mumbai, Track 1: AI Agent Trading**.
@@ -23,11 +25,11 @@ Entry for the **HSK Chain Horizon Hackathon · Mumbai, Track 1: AI Agent Trading
 | **Solution** | A per-user `GuardedVault` that holds the funds and enforces trade size, daily stop-loss, token allowlist, price sanity and oracle freshness in Solidity. The agent's key can only call `executeSwap`. |
 | **Strategy** | Buys when HSKSwap prices a token below the HashKey Exchange order book, sells when above, with a mean-reversion or momentum signal. Default edge 0.6% after fees and price impact. |
 | **Control** | Chat with Claude Sonnet 5.5: "halve my risk and stop trading WETH" becomes a before/after diff you sign in one transaction. The model never holds a key. |
-| **Chain** | Live on HSK Chain testnet (id 133), as the organisers allow for the hackathon; mainnet (id 177) follows. HSKSwap SwapRouter02 + QuoterV2 (on testnet, the Uniswap V3 contracts HSKSwap forks), Supra price oracle, HashKey Exchange public API. |
-| **Status** | Live at [kedia-nu.vercel.app](https://kedia-nu.vercel.app) on HSK testnet. 36 Foundry tests (31 on a fork of HSK mainnet with real HSKSwap pools, 5 for the testnet stack) plus 10 unit tests, all passing. See [Status](#status-implemented-vs-planned). |
+| **Chain** | Ran on HSK Chain testnet (id 133). HSKSwap SwapRouter02 + QuoterV2 (on testnet, the Uniswap V3 contracts HSKSwap forks), Supra price oracle, HashKey Exchange public API. |
+| **Status** | **Closed.** Ran on HSK testnet until November 2026. 36 Foundry tests (31 on a fork of HSK mainnet with real HSKSwap pools, 5 for the testnet stack) plus 10 unit tests, all passing. See [Status](#status-implemented-vs-planned). |
 | **Code** | [github.com/AAYUSH-GUPTA-coder/Kedia](https://github.com/AAYUSH-GUPTA-coder/Kedia). ~3,300 lines across Solidity, backend, AI and frontend, all written during the hackathon (first commit 25 Oct 2026). |
 | **Demo video** | [youtu.be/J6QaVf1tYr8](https://youtu.be/J6QaVf1tYr8) (2:32): the dashboard, a chat proposal signed on-chain, and a trade the vault refuses. |
-| **Live dashboard** | [kedia-nu.vercel.app](https://kedia-nu.vercel.app) on HSK testnet. Visitors without a wallet see the demo vault read-only. |
+| **Website** | [kedia-nu.vercel.app](https://kedia-nu.vercel.app), a static page about Kedia. The live dashboard is offline. |
 
 ## Why Kedia is different
 
@@ -55,11 +57,10 @@ The track asks for an AI agent that runs the full loop on a DEX without manual i
 | Built on HSK Chain with recommended products | HSKSwap router and quoter, Supra oracle on HSK, HashKey Exchange API; APRO feeds evaluated (see [Where prices come from](#where-prices-come-from)) | `ABI/addresses.json` |
 | Deployed on HSK Chain mainnet | Deploy script with Blockscout verification; fork of mainnet used for all tests | `SmartContracts/script/Deploy.s.sol` |
 
-## Try it on HSK testnet
+## On HSK testnet
 
-Kedia runs on **HSK Chain testnet** (chain 133) for the hackathon, as the organisers allow; mainnet comes after judging.
+Kedia ran on **HSK Chain testnet** (chain 133). The contracts below are still deployed and verified, but the agent no longer trades.
 
-- **Live dashboard:** [kedia-nu.vercel.app](https://kedia-nu.vercel.app). Without a wallet you see the demo vault read-only.
 - **Wallet:** connect MetaMask; the dashboard offers to add and switch to HSK Chain Testnet (RPC `https://testnet.hsk.xyz`).
 - **Gas:** claim testnet HSK at the official faucet, [hskchain.net/faucet](https://hskchain.net/faucet).
 - **Tokens:** press **Get test tokens** in the dashboard for 100 test USDT and 1,000 test WHSK (once an hour).
@@ -102,8 +103,8 @@ A real rejection on HSK testnet: a chat request to buy $29.96 of WETH, refused b
 
 | Implemented and tested | Planned or pending |
 |---|---|
-| GuardedVault, VaultFactory, SupraFeedAdapter contracts with 31 mainnet-fork tests | Mainnet deployment after the hackathon (addresses in `ABI/addresses.json` are zero until then) |
-| Live on HSK testnet: contracts verified on the testnet explorer, dashboard on Vercel, always-on agent backend on Render | |
+| GuardedVault, VaultFactory, SupraFeedAdapter contracts with 31 mainnet-fork tests | Mainnet deployment (not pursued; addresses in `ABI/addresses.json` are zero) |
+| Ran on HSK testnet: contracts verified on the testnet explorer, dashboard on Vercel, agent backend on Render (now shut down) | |
 | Testnet stack: test tokens with a faucet, official Uniswap V3 pools, one-command deploy, 5 local tests | |
 | One vault per wallet, one gas-only agent wallet per vault, keys derived from one backend secret | |
 | Mean-reversion and momentum strategies, per-vault agent settings | |
@@ -112,7 +113,7 @@ A real rejection on HSK testnet: a chat request to buy $29.96 of WETH, refused b
 | Sign-In with Ethereum sessions; the backend acts only on the vault your wallet owns | Durable sessions and persistent price history across backend restarts |
 | Guardrail demo card that provokes an on-chain `TradeTooLarge` revert | |
 
-Nothing in the "implemented" column depends on anything in the "planned" column. Everything in the left column runs today on HSK testnet at [kedia-nu.vercel.app](https://kedia-nu.vercel.app), and on a local fork of mainnet.
+Nothing in the "implemented" column depends on anything in the "planned" column. Everything in the left column ran on HSK testnet and still runs on a local fork of mainnet.
 
 ## Verify it yourself
 
@@ -198,7 +199,7 @@ There are three roles, and each can do only its own job:
 | Backend | Node 24, viem 2, plain `http` server, trading loop every 30 seconds, file-backed per-vault logs |
 | AI | Claude Sonnet 5.5 through the Hopscotch Labs gateway (OpenAI-compatible endpoint), four tools, max 8 tool steps per turn |
 | Frontend | Next.js 16, React 19, wagmi 3, Tailwind CSS 4, TanStack Query (live polling every 5 seconds), react-markdown for chat replies, Sign-In with Ethereum (EIP-4361) |
-| Hosting | Dashboard on Vercel. Backend and trading loop on Render's free plan, kept awake by an UptimeRobot ping to `/health` every 5 minutes |
+| Hosting | Ran with the dashboard on Vercel and the backend on Render's free plan. Both are shut down; Vercel now serves a static page |
 | Tooling | pnpm workspaces monorepo, TypeScript throughout |
 
 ### What happens on every trade
@@ -450,7 +451,7 @@ pnpm frontend:testnet    # dashboard at http://localhost:3000
 
 ### Host it (Render + Vercel)
 
-The live deployment runs the backend on Render's free plan and the dashboard on Vercel.
+The original deployment ran the backend on Render's free plan and the dashboard on Vercel. To host your own:
 
 - **Backend on Render:** **New → Blueprint**, pick the repo. [`render.yaml`](render.yaml) defines the `kedia-backend` web service (free plan, branch `main`, testnet, `FRONTEND_ORIGIN`) and asks for the two secrets: `AGENT_MASTER_KEY` (the testnet one) and `HOPSCOTCH_API_KEY`.
 - **Keep it awake:** a free plan sleeps after 15 minutes without requests and loses its local files when it does, so point a free uptime monitor (UptimeRobot) at `<backend-url>/health` every 5 minutes.
@@ -550,7 +551,6 @@ To check the backend can read your key and reach the model, run `pnpm check:ai` 
 - Agent settings and trade logs are files in `Backend/data/`, kept per vault. The agent's price history for momentum is in memory, so momentum warms up again after a restart.
 - The stop-loss is marked at oracle prices, so a lagging feed can hold equity under the floor and block trading until the price recovers or the next UTC day starts. That is the guardrail working. The owner can also reset it by depositing, withdrawing or raising the cap.
 - Supra's on-chain prices are refreshed by whoever pushes Supra proofs. The vault refuses to trade if a price is older than the freshness limit.
-- The hosted backend runs on Render's free plan, so its trade log, value-chart history and agent settings reset whenever Render restarts it; vaults and funds are on-chain and unaffected. An uptime ping keeps it from sleeping.
 - On testnet the pools are our own, seeded at Supra prices, so their price moves only when someone trades. The agent still compares them with the live HashKey Exchange price, so it trades when the market moves away from the pool. Test tokens have no value.
 - Earnings depend on HSKSwap liquidity and on price gaps that other traders also compete for. Nothing here is a promise of profit.
 
