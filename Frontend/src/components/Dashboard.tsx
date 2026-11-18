@@ -15,17 +15,7 @@ import { GuardrailDemo } from "./GuardrailDemo";
 import { PolicyPanel } from "./PolicyPanel";
 import { Positions } from "./Positions";
 import { TradeLog } from "./TradeLog";
-import { Button, Dot, label, Tag } from "./ui";
-
-/** The Kedia mark (brand/svg/kedia-mark-transparent.svg): a K whose arms stop just short of the vault wall. */
-function Mark() {
-  return (
-    <svg viewBox="6 6 52 52" aria-hidden className="size-6 shrink-0">
-      <path fill="var(--color-fg)" fillRule="evenodd" d="M21.5 6H42.5A15.5 15.5 0 0 1 58 21.5V42.5A15.5 15.5 0 0 1 42.5 58H21.5A15.5 15.5 0 0 1 6 42.5V21.5A15.5 15.5 0 0 1 21.5 6ZM21.5 11A10.5 10.5 0 0 0 11 21.5V42.5A10.5 10.5 0 0 0 21.5 53H42.5A10.5 10.5 0 0 0 53 42.5V21.5A10.5 10.5 0 0 0 42.5 11Z" />
-      <path fill="var(--color-accent)" d="M19 16H27.5V31.6L47 16V24.96L38.2 32L47 39.04V48L27.5 32.4V48H19Z" />
-    </svg>
-  );
-}
+import { Button, Dot, label, Mark, Tag } from "./ui";
 
 function ConnectButton() {
   const connectors = useConnectors();
